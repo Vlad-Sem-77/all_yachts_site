@@ -134,9 +134,9 @@ a:focus-visible { outline: 3px solid var(--sun); outline-offset: 3px; }
   .brand-name { font-size: 14px; }
   .brand-name small { font-size: 10px; }
   .main-nav { font-size: 12px; }
-  .hero-illustration { position: relative; top: auto; right: auto; width: 160px; height: 160px; margin: -16px 16px 22px auto; opacity: .82; }
+  .hero-illustration { position: absolute; top: 64px; right: 10px; width: clamp(150px, 43vw, 180px); height: clamp(150px, 43vw, 180px); margin: 0; opacity: .88; }
   .hero-copy { width: calc(100% - 32px); min-height: 380px; padding: 47px 0 42px; }
-  .hero-copy h1 { max-width: 340px; margin-top: 15px; font-size: clamp(39px, 10vw, 52px); }
+  .hero-copy h1 { max-width: calc(100% - clamp(165px, 45vw, 190px)); min-height: clamp(150px, 43vw, 180px); margin-top: 15px; font-size: clamp(34px, 10vw, 42px); }
   .hero-description { max-width: 310px; font-size: 14px; }
   .primary-link { margin-top: 23px; font-size: 12px; }
   .sun { top: 30px; right: 38px; width: 56px; height: 56px; }
