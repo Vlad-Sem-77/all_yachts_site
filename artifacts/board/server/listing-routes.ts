@@ -98,7 +98,7 @@ export type CatalogFilters = {
   city: string;
   condition: string;
   transaction: string;
-  sort: "newest" | "price-asc" | "price-desc";
+  sort: "newest" | "price-asc" | "price-desc" | "brand-asc";
   page: number;
 };
 
@@ -152,7 +152,9 @@ export function parseCatalogFilters(query: Request["query"]): CatalogFilters {
     transaction:
       transaction === "sale" || transaction === "rent" ? transaction : "",
     sort:
-      sort === "price-asc" || sort === "price-desc" ? sort : "newest",
+      sort === "price-asc" || sort === "price-desc" || sort === "brand-asc"
+        ? sort
+        : "newest",
     page:
       Number.isInteger(requestedPage) && requestedPage > 0
         ? Math.min(requestedPage, 1_000_000)
@@ -322,17 +324,24 @@ export async function getCatalogPage(
   const pageCount = Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE));
   const page = Math.min(filters.page, pageCount);
   const sortOrder =
-    filters.sort === "price-asc"
+    filters.sort === "brand-asc"
       ? [
-          asc(sql`CASE WHEN ${boatListings.price} IS NULL THEN 1 ELSE 0 END`),
-          asc(boatListings.price),
+          asc(
+            sql`CASE WHEN NULLIF(btrim(${boatListings.manufacturer}), '') IS NULL THEN 1 ELSE 0 END`,
+          ),
+          asc(sql`lower(${boatListings.manufacturer})`),
         ]
-      : filters.sort === "price-desc"
+      : filters.sort === "price-asc"
         ? [
             asc(sql`CASE WHEN ${boatListings.price} IS NULL THEN 1 ELSE 0 END`),
-            desc(boatListings.price),
+            asc(boatListings.price),
           ]
-        : [desc(boatListings.createdAt)];
+        : filters.sort === "price-desc"
+          ? [
+              asc(sql`CASE WHEN ${boatListings.price} IS NULL THEN 1 ELSE 0 END`),
+              desc(boatListings.price),
+            ]
+          : [desc(boatListings.createdAt)];
   const rows = await db
     .select({
       id: boatListings.id,

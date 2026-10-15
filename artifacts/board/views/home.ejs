@@ -27,7 +27,7 @@
     <p><%= t('home.categoriesDescription') %></p>
   </div>
   <div class="category-grid">
-    <% categories.forEach((category, index) => { %>
+    <% categories.filter((category) => category.slug !== "maloletnie-suda").forEach((category, index) => { %>
       <article class="category-card">
         <a class="category-main-link" href="/category/<%= category.slug %>">
           <span class="category-number"><%= String(index + 1).padStart(2, "0") %></span>
