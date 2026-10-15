@@ -1,35 +1,22 @@
 import { and, count, desc, eq, inArray } from "drizzle-orm";
-import ejs from "ejs";
+import cookieParser from "cookie-parser";
 import express, { type Request, type Response } from "express";
-import i18next from "i18next";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { boatCategories, boatListings, db } from "@workspace/db";
-import ru from "../locales/ru.json";
+import formRoutes from "./form-routes";
+import listingRoutes, { getListingCards } from "./listing-routes";
+import { messages, t } from "./localization";
+import { renderPage } from "./view";
 
 const rootDir = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
-const viewsDir = path.join(rootDir, "views");
 const publicDir = path.join(rootDir, "public");
 const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
-const i18n = i18next.createInstance();
-
-await i18n.init({
-  lng: "ru",
-  fallbackLng: "ru",
-  supportedLngs: ["ru", "en"],
-  resources: {
-    ru: { translation: ru },
-  },
-  interpolation: {
-    escapeValue: false,
-  },
-});
 
 const app = express();
-app.set("view engine", "ejs");
-app.set("views", viewsDir);
+app.set("trust proxy", 1);
 app.use(
   pinoHttp({
     logger,
@@ -47,6 +34,9 @@ app.use(
     },
   }),
 );
+app.use(cookieParser());
+app.use(express.urlencoded({ extended: true, limit: "64kb" }));
+app.use(express.json({ limit: "32kb" }));
 app.use("/assets", express.static(publicDir, { maxAge: "1h" }));
 
 type CategoryRow = typeof boatCategories.$inferSelect;
@@ -101,48 +91,12 @@ async function getCategoryTree(): Promise<CategoryView[]> {
     });
 }
 
-async function renderPage(
-  res: Response,
-  page: string,
-  locals: Record<string, unknown>,
-  status = 200,
-): Promise<void> {
-  const t = i18n.getFixedT("ru");
-  const shared = {
-    t,
-    lang: "ru",
-    categories: [],
-    title: ru.home.title,
-    description: ru.home.description,
-    heading: ru.errors.notFoundTitle,
-    message: ru.errors.notFoundDescription,
-    ...locals,
-  };
-  const body = await ejs.renderFile(path.join(viewsDir, `${page}.ejs`), shared);
-  const html = await ejs.renderFile(path.join(viewsDir, "base.ejs"), {
-    ...shared,
-    body,
-  });
-  res.status(status).type("html").send(html);
-}
-
 async function getRecentListings() {
-  return db
-    .select({
-      id: boatListings.id,
-      slug: boatListings.slug,
-      title: boatListings.title,
-      price: boatListings.price,
-      currency: boatListings.currency,
-      isNegotiable: boatListings.isNegotiable,
-      country: boatListings.country,
-      cityOrRegion: boatListings.cityOrRegion,
-      createdAt: boatListings.createdAt,
-    })
-    .from(boatListings)
-    .where(eq(boatListings.status, "active"))
-    .orderBy(desc(boatListings.isFeatured), desc(boatListings.priority), desc(boatListings.createdAt))
-    .limit(8);
+  const rows = await db
+    .select({ id: boatCategories.id })
+    .from(boatCategories)
+    .where(eq(boatCategories.isActive, true));
+  return getListingCards(rows.map((row) => row.id), undefined, 8);
 }
 
 function formatPrice(
@@ -172,8 +126,8 @@ async function renderHome(_req: Request, res: Response): Promise<void> {
   await renderPage(res, "home", {
     categories,
     listings,
-    title: ru.home.title,
-    description: ru.home.description,
+    title: messages.home.title,
+    description: messages.home.description,
     formatPrice,
   });
 }
@@ -197,7 +151,7 @@ async function renderCategory(
     await renderPage(
       res,
       "not-found",
-      { categories, title: ru.errors.notFoundTitle },
+      { categories, title: messages.errors.notFoundTitle },
       404,
     );
     return;
@@ -208,31 +162,7 @@ async function renderCategory(
     ...category.children.map((child) => child.id),
   ];
   const [listings, [totalRow]] = await Promise.all([
-    db
-      .select({
-        id: boatListings.id,
-        slug: boatListings.slug,
-        title: boatListings.title,
-        price: boatListings.price,
-        currency: boatListings.currency,
-        isNegotiable: boatListings.isNegotiable,
-        country: boatListings.country,
-        cityOrRegion: boatListings.cityOrRegion,
-        createdAt: boatListings.createdAt,
-      })
-      .from(boatListings)
-      .where(
-        and(
-          inArray(boatListings.categoryId, categoryIds),
-          eq(boatListings.status, "active"),
-        ),
-      )
-      .orderBy(
-        desc(boatListings.isFeatured),
-        desc(boatListings.priority),
-        desc(boatListings.createdAt),
-      )
-      .limit(20),
+    getListingCards(categoryIds, undefined, 20),
     db
       .select({ total: count() })
       .from(boatListings)
@@ -243,19 +173,19 @@ async function renderCategory(
         ),
       ),
   ]);
-  const t = i18n.getFixedT("ru");
-
   await renderPage(res, "category", {
     categories,
     category,
     listings,
     total: totalRow.total,
-    title: `${category.nameRu} — ${t("category.titleSuffix")} | ${ru.brand.name}`,
+    title: `${category.nameRu} — ${t("category.titleSuffix")} | ${messages.brand.name}`,
     description: t("category.description", { name: category.nameRu }),
     formatPrice,
   });
 }
 
+app.use(formRoutes);
+app.use(listingRoutes);
 app.get("/", renderHome);
 app.get("/category/:parentSlug/:slug", (req, res) =>
   renderCategory(req, res, req.params.parentSlug),
@@ -266,9 +196,9 @@ app.use(async (_req, res) => {
     res,
     "not-found",
     {
-      title: ru.errors.notFoundTitle,
-      heading: ru.errors.notFoundTitle,
-      message: ru.errors.notFoundDescription,
+      title: messages.errors.notFoundTitle,
+      heading: messages.errors.notFoundTitle,
+      message: messages.errors.notFoundDescription,
     },
     404,
   );
@@ -288,15 +218,15 @@ app.use(
         res,
         "not-found",
         {
-          title: ru.errors.serverError,
-          heading: ru.errors.serverError,
-          message: ru.errors.serverError,
-          description: ru.errors.serverError,
+          title: messages.errors.serverError,
+          heading: messages.errors.serverError,
+          message: messages.errors.serverError,
+          description: messages.errors.serverError,
         },
         500,
       );
     } catch {
-      res.status(500).send(ru.errors.serverError);
+      res.status(500).send(messages.errors.serverError);
     }
   },
 );

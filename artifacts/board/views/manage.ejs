@@ -1,0 +1,39 @@
+<section class="page-heading compact-heading">
+  <nav class="breadcrumbs" aria-label="<%= t('accessibility.breadcrumb') %>">
+    <a href="/"><%= t("nav.home") %></a><span aria-hidden="true">/</span>
+    <a href="/category/<%= listing.categoryPath || "boats" %>/<%= listing.slug %>"><%= listing.title %></a><span aria-hidden="true">/</span>
+    <span aria-current="page"><%= t("detail.manageTitle") %></span>
+  </nav>
+  <p class="eyebrow"><%= t("detail.authorTools") %></p>
+  <h1><%= t("detail.manageTitle") %></h1>
+</section>
+
+<section class="content-section form-section">
+  <div class="management-card">
+    <% if (error) { %><div class="form-alert" role="alert"><%= error %></div><% } %>
+    <% if (!authenticated) { %>
+      <p><%= t("detail.manageAccessRequired") %></p>
+      <form class="listing-form compact-form" method="post" action="/listing/<%= listing.slug %>/manage">
+        <input type="hidden" name="_csrf" value="<%= csrf %>" />
+        <label class="form-field"><span><%= t("detail.managePassword") %></span><input type="password" name="password" required autocomplete="current-password" /></label>
+        <button class="primary-button" type="submit"><%= t("detail.manageSubmit") %></button>
+      </form>
+      <a class="text-link" href="/listing/<%= listing.slug %>/forgot-password"><%= t("detail.forgotPassword") %></a>
+    <% } else { %>
+      <% if (renewed) { %><div class="notice-banner"><%= t("detail.renewed") %></div><% } %>
+      <h2><%= listing.title %></h2>
+      <div class="management-actions">
+        <a class="primary-button" href="/listing/<%= listing.slug %>/edit"><%= t("listing.edit") %></a>
+        <form method="post" action="/listing/<%= listing.slug %>/renew">
+          <input type="hidden" name="_csrf" value="<%= csrf %>" />
+          <button class="secondary-button" type="submit"><%= t("detail.renew") %></button>
+        </form>
+        <a class="text-link" href="/listing/<%= listing.slug %>/forgot-password"><%= t("detail.forgotPassword") %></a>
+        <form method="post" action="/listing/<%= listing.slug %>/delete" data-confirm="<%= t('detail.deleteConfirm') %>">
+          <input type="hidden" name="_csrf" value="<%= csrf %>" />
+          <button class="danger-button" type="submit"><%= t("detail.delete") %></button>
+        </form>
+      </div>
+    <% } %>
+  </div>
+</section>

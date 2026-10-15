@@ -1,0 +1,53 @@
+<section class="page-heading compact-heading">
+  <nav class="breadcrumbs" aria-label="<%= t('accessibility.breadcrumb') %>">
+    <a href="/"><%= t("nav.home") %></a><span aria-hidden="true">/</span>
+    <span aria-current="page"><%= t("submit.title") %></span>
+  </nav>
+  <p class="eyebrow"><%= t("home.eyebrow") %></p>
+  <h1><%= t("submit.title") %></h1>
+  <p><%= t("submit.description") %></p>
+</section>
+
+<section class="content-section form-section">
+  <form class="listing-form" method="post" action="/submit" enctype="application/x-www-form-urlencoded" data-submit-form
+    data-msg-too-many="<%= t('submit.errorTooManyPhotos') %>"
+    data-msg-size="<%= t('submit.errorPhotoSize') %>"
+    data-msg-no-photos="<%= t('submit.errorNoPhotos') %>"
+    data-msg-format="<%= t('submit.errorPhotoFormat') %>"
+    data-msg-uploading="<%= t('submit.uploading') %>"
+    data-msg-uploaded="<%= t('submit.uploaded') %>"
+    data-msg-upload-error="<%= t('submit.uploadError') %>">
+    <% if (error) { %><div class="form-alert" role="alert"><%= error %></div><% } %>
+    <input type="hidden" name="_csrf" value="<%= csrf %>" />
+    <input type="hidden" name="captchaId" value="<%= captcha.id %>" />
+    <input type="hidden" name="draftToken" value="<%= draftToken %>" data-draft-token />
+    <div data-upload-paths><% uploadPaths.forEach((uploadPath) => { %><input type="hidden" name="uploadPaths" value="<%= uploadPath %>" /><% }) %></div>
+    <label class="honeypot-field" aria-hidden="true"><span><%= t("submit.honeypotLabel") %></span><input name="website" tabindex="-1" autocomplete="off" /></label>
+
+    <%- include("_listing-fields.ejs", { categories: categoryOptions, countries, values, listing: null, showPassword: true, t }) %>
+
+    <div class="form-block">
+      <div class="form-block-heading"><h2><%= t("submit.choosePhotos") %></h2></div>
+      <label class="photo-picker">
+        <span class="photo-picker-icon" aria-hidden="true">＋</span>
+        <span><%= t("submit.choosePhotos") %></span>
+        <input type="file" accept="image/jpeg,image/png,image/webp" multiple required data-photo-input />
+      </label>
+      <small class="field-hint"><%= t("submit.photosHint") %></small>
+      <div class="photo-preview-grid" data-photo-preview></div>
+      <div class="upload-progress" data-upload-status aria-live="polite"></div>
+    </div>
+
+    <div class="form-grid form-grid-two captcha-agreement">
+      <label class="form-field">
+        <span><%= t("submit.captcha") %>: <strong><%= captcha.question %></strong></span>
+        <input name="captchaAnswer" inputmode="numeric" required autocomplete="off" />
+      </label>
+      <label class="checkbox-field agreement-field">
+        <span><input name="rulesAgree" type="checkbox" required <%= values.rulesAgree === "on" ? "checked" : "" %> /><%= t("submit.rulesAgree") %> <a href="/rules" target="_blank" rel="noopener"><%= t("submit.rulesLink") %></a></span>
+      </label>
+    </div>
+    <button class="primary-button" type="submit" data-submit-button><%= t("submit.publish") %><span aria-hidden="true">→</span></button>
+  </form>
+</section>
+<script src="/assets/submit.js" defer></script>

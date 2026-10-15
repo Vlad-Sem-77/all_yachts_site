@@ -1,0 +1,122 @@
+<section class="listing-detail">
+  <nav class="breadcrumbs" aria-label="<%= t('accessibility.breadcrumb') %>">
+    <a href="/"><%= t("nav.home") %></a><span aria-hidden="true">/</span>
+    <a href="/category/<%= categoryPath %>"><%= parent ? parent.nameRu : category.nameRu %></a>
+    <% if (parent) { %><span aria-hidden="true">/</span><a href="/category/<%= categoryPath %>/<%= category.slug %>"><%= category.nameRu %></a><% } %>
+    <span aria-hidden="true">/</span><span aria-current="page"><%= listing.title %></span>
+  </nav>
+
+  <% if (publishedNotice) { %><div class="notice-banner"><%= t("listing.published") %></div><% } %>
+  <% if (reportedNotice) { %><div class="notice-banner"><%= t("detail.reportSuccess") %></div><% } %>
+  <% if (updatedNotice) { %><div class="notice-banner"><%= t("listing.updatedNotice") %></div><% } %>
+
+  <div class="listing-detail-grid">
+    <div class="listing-main">
+      <div class="listing-gallery">
+        <% if (photos.length) { %>
+          <div class="gallery-main">
+            <img src="<%= photos[0].url %>" alt="<%= photos[0].altText %>" data-gallery-main />
+          </div>
+          <% if (photos.length > 1) { %>
+            <div class="gallery-thumbnails">
+              <% photos.forEach((photo, index) => { %>
+                <button class="gallery-thumb <%= index === 0 ? "is-active" : "" %>" type="button" data-gallery-item data-full="<%= photo.url %>" aria-label="<%= photo.altText %>">
+                  <img src="<%= photo.thumbnailUrl %>" alt="" />
+                </button>
+              <% }) %>
+            </div>
+          <% } %>
+        <% } else { %>
+          <div class="listing-no-photo"><span aria-hidden="true">⌁</span><span><%= t("listing.noPhoto") %></span></div>
+        <% } %>
+      </div>
+
+      <div class="listing-description-block">
+        <h2><%= t("listing.descriptionHeading") %></h2>
+        <p class="listing-description"><%= listing.description %></p>
+      </div>
+
+      <section class="listing-parameters">
+        <h2><%= t("listing.parameters") %></h2>
+        <dl class="spec-grid">
+          <div><dt><%= t("submit.category") %></dt><dd><%= category.nameRu %></dd></div>
+          <% if (listing.transactionType) { %><div><dt><%= t("submit.transactionType") %></dt><dd><%= listing.transactionType === "rent" ? t("listing.rent") : t("listing.sale") %></dd></div><% } %>
+          <% if (listing.condition) { %><div><dt><%= t("submit.condition") %></dt><dd><%= conditions[listing.condition] || listing.condition %></dd></div><% } %>
+          <% if (listing.year) { %><div><dt><%= t("submit.year") %></dt><dd><%= listing.year %></dd></div><% } %>
+          <% if (listing.lengthM) { %><div><dt><%= t("submit.length") %></dt><dd><%= listing.lengthM %> м</dd></div><% } %>
+          <% if (listing.widthM) { %><div><dt><%= t("submit.width") %></dt><dd><%= listing.widthM %> м</dd></div><% } %>
+          <% if (listing.manufacturer) { %><div><dt><%= t("submit.manufacturer") %></dt><dd><%= listing.manufacturer %></dd></div><% } %>
+          <% if (listing.model) { %><div><dt><%= t("submit.model") %></dt><dd><%= listing.model %></dd></div><% } %>
+          <% if (listing.engineType && listing.engineType !== "none") { %><div><dt><%= t("submit.engineType") %></dt><dd><%= t(`submit.engine${listing.engineType === "outboard" ? "Outboard" : listing.engineType === "inboard" ? "Inboard" : "Other"}`) %></dd></div><% } %>
+          <% if (listing.enginePowerHp) { %><div><dt><%= t("submit.enginePower") %></dt><dd><%= listing.enginePowerHp %> л.с.</dd></div><% } %>
+          <% if (listing.engineHours !== null) { %><div><dt><%= t("submit.engineHours") %></dt><dd><%= listing.engineHours %></dd></div><% } %>
+          <% if (listing.waterArea) { %><div><dt><%= t("submit.waterArea") %></dt><dd><%= listing.waterArea %></dd></div><% } %>
+        </dl>
+      </section>
+    </div>
+
+    <aside class="listing-sidebar">
+      <p class="eyebrow"><%= category.nameRu %></p>
+      <h1><%= listing.title %></h1>
+      <p class="listing-location"><%= listing.country %><%= t("listing.locationSeparator") %><%= listing.cityOrRegion %></p>
+      <p class="detail-price"><%= formatPrice(listing.price, listing.currency, listing.isNegotiable) %></p>
+      <p class="listing-date"><%= t("listing.publishedAt") %> · <%= new Date(listing.createdAt).toLocaleDateString("ru-RU") %></p>
+      <p class="listing-views"><%= t("listing.viewCount") %>: <strong><%= listing.viewCount %></strong></p>
+
+      <div class="seller-card">
+        <strong><%= listing.contactName %></strong>
+        <button class="primary-button phone-button" type="button" data-phone-button
+          data-slug="<%= listing.slug %>" data-csrf="<%= csrf %>"
+          data-label-show="<%= t('listing.showPhone') %>"
+          data-label-hide="<%= t('listing.hidePhone') %>"
+          data-error="<%= t('listing.phoneError') %>">
+          <%= t("listing.showPhone") %><span aria-hidden="true">↗</span>
+        </button>
+        <div class="revealed-phone" data-phone-result aria-live="polite"
+          data-msg-copied="<%= t('listing.copied') %>"
+          data-msg-share="<%= t('listing.shareUnavailable') %>"></div>
+      </div>
+
+      <div class="listing-actions">
+        <button class="secondary-button" type="button" data-share-button><%= t("listing.share") %></button>
+        <button class="text-button" type="button" data-copy-link><%= t("listing.copyLink") %></button>
+        <a class="text-button" href="/listing/<%= listing.slug %>/manage"><%= t("detail.authorTools") %></a>
+      </div>
+    </aside>
+  </div>
+
+  <section class="report-section" id="report">
+    <div class="section-heading"><div><p class="eyebrow"><%= t("listing.report") %></p><h2><%= t("detail.reportTitle") %></h2></div></div>
+    <form class="report-form" method="post" action="/listing/<%= listing.slug %>/report">
+      <input type="hidden" name="_csrf" value="<%= csrf %>" />
+      <label class="honeypot-field" aria-hidden="true"><span><%= t("listing.reportHoneypot") %></span><input name="website" tabindex="-1" autocomplete="off" /></label>
+      <label class="form-field"><span><%= t("detail.reportReason") %></span>
+        <select name="reason" required>
+          <% Object.entries(t("detail.reportReasons", { returnObjects: true })).forEach(([value,label]) => { %><option value="<%= value %>"><%= label %></option><% }) %>
+        </select>
+      </label>
+      <label class="form-field"><span><%= t("detail.reportDetails") %></span><textarea name="details" maxlength="1000" rows="3"></textarea></label>
+      <button class="secondary-button" type="submit"><%= t("detail.reportSubmit") %></button>
+    </form>
+  </section>
+</section>
+
+<% if (similar.length) { %>
+  <section class="content-section similar-section">
+    <div class="section-heading"><div><p class="eyebrow"><%= t("listing.similarHeading") %></p><h2><%= t("listing.similarHeading") %></h2></div></div>
+    <div class="listing-grid">
+      <% similar.forEach((item) => { %>
+        <a class="listing-card" href="/category/<%= item.categoryPath %>/<%= item.slug %>">
+          <div class="listing-card-image">
+            <% if (item.thumbnailUrl) { %><img src="<%= item.thumbnailUrl %>" alt="" loading="lazy" /><% } else { %><span><%= t("listing.noPhoto") %></span><% } %>
+          </div>
+          <div class="listing-card-body">
+            <h3><%= item.title %></h3>
+            <p class="listing-location"><%= item.country %><%= t("listing.locationSeparator") %><%= item.cityOrRegion %></p>
+            <strong class="listing-price"><%= formatPrice(item.price, item.currency, item.isNegotiable) %></strong>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  </section>
+<% } %>

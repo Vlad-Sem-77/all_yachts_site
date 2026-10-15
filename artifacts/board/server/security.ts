@@ -26,7 +26,11 @@ const secret = process.env.SESSION_SECRET;
 if (!secret) throw new Error("SESSION_SECRET is required for form security.");
 
 function hmac(value: string): string {
-  return createHmac("sha256", secret).update(value).digest("hex");
+  const signingSecret = process.env.SESSION_SECRET;
+  if (!signingSecret) {
+    throw new Error("SESSION_SECRET is required for form security.");
+  }
+  return createHmac("sha256", signingSecret).update(value).digest("hex");
 }
 
 function equalText(left: string, right: string): boolean {

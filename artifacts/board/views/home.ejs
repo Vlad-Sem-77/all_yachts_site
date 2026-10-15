@@ -55,14 +55,16 @@
   <% if (listings.length) { %>
     <div class="listing-grid">
       <% listings.forEach((listing) => { %>
-        <article class="listing-card">
-          <div class="listing-card-image"><span><%= t('listing.photoComingSoon') %></span></div>
+        <a class="listing-card" href="/category/<%= listing.categoryPath %>/<%= listing.slug %>">
+          <div class="listing-card-image">
+            <% if (listing.thumbnailUrl) { %><img src="<%= listing.thumbnailUrl %>" alt="" loading="lazy" /><% } else { %><span><%= t('listing.photoComingSoon') %></span><% } %>
+          </div>
           <div class="listing-card-body">
             <h3><%= listing.title %></h3>
             <p class="listing-location"><%= listing.country %><%= t('listing.locationSeparator') %><%= listing.cityOrRegion %></p>
             <strong class="listing-price"><%= formatPrice(listing.price, listing.currency, listing.isNegotiable, t) %></strong>
           </div>
-        </article>
+        </a>
       <% }) %>
     </div>
   <% } else { %>

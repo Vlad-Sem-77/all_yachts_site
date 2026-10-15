@@ -1,0 +1,18 @@
+<section class="page-heading compact-heading">
+  <nav class="breadcrumbs" aria-label="<%= t('accessibility.breadcrumb') %>">
+    <a href="/"><%= t("nav.home") %></a><span aria-hidden="true">/</span>
+    <a href="/listing/<%= listing.slug %>/manage"><%= t("detail.manageTitle") %></a><span aria-hidden="true">/</span>
+    <span aria-current="page"><%= t("detail.editTitle") %></span>
+  </nav>
+  <p class="eyebrow"><%= t("detail.authorTools") %></p>
+  <h1><%= t("detail.editTitle") %></h1>
+</section>
+<section class="content-section form-section">
+  <form class="listing-form" method="post" action="/listing/<%= listing.slug %>/edit" data-category-form>
+    <% if (error) { %><div class="form-alert" role="alert"><%= error %></div><% } %>
+    <input type="hidden" name="_csrf" value="<%= csrf %>" />
+    <%- include("_listing-fields.ejs", { categories: categoryOptions, countries, values, listing, showPassword: false, t }) %>
+    <button class="primary-button" type="submit"><%= t("detail.saveChanges") %><span aria-hidden="true">→</span></button>
+  </form>
+</section>
+<script src="/assets/category-fields.js" defer></script>

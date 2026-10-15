@@ -9,6 +9,7 @@
     <meta property="og:type" content="website" />
     <title><%= title || t('home.title') %></title>
     <link rel="stylesheet" href="/assets/site.css" />
+    <link rel="stylesheet" href="/assets/listing.css" />
     <link rel="icon" href="/assets/anchor.svg" type="image/svg+xml" />
   </head>
   <body>
@@ -21,6 +22,7 @@
           </a>
           <nav class="main-nav" aria-label="<%= t('accessibility.mainNavigation') %>">
             <a href="/#categories"><%= t('nav.categories') %></a>
+            <a class="nav-submit" href="/submit"><%= t('nav.submit') %><span aria-hidden="true">＋</span></a>
           </nav>
         </div>
       </header>
@@ -44,5 +46,6 @@
         </div>
       </footer>
     </div>
+    <script src="/assets/interaction.js" defer></script>
   </body>
 </html>

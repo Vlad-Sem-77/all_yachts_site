@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { and, count, desc, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
 import { Router, type Request, type Response } from "express";
 import sharp from "sharp";
 import {
@@ -12,7 +12,6 @@ import {
 } from "@workspace/db";
 import {
   allowRateLimitedAction,
-  consumeMathChallenge,
   createCsrfToken,
   createMathChallenge,
   createOpaqueToken,
@@ -46,7 +45,7 @@ type CategoryOption = {
   hasEngineFields: boolean;
 };
 
-async function getCategoryOptions(): Promise<CategoryOption[]> {
+export async function getCategoryOptions(): Promise<CategoryOption[]> {
   const rows = await db
     .select()
     .from(boatCategories)
@@ -92,13 +91,25 @@ async function getCategoryOptions(): Promise<CategoryOption[]> {
   });
 }
 
+async function getFooterCategories() {
+  return db
+    .select({
+      id: boatCategories.id,
+      slug: boatCategories.slug,
+      nameRu: boatCategories.nameRu,
+    })
+    .from(boatCategories)
+    .where(and(eq(boatCategories.isActive, true), isNull(boatCategories.parentId)))
+    .orderBy(boatCategories.sortOrder, boatCategories.id);
+}
+
 function isHoneypotFilled(body: Record<string, unknown>): boolean {
   return typeof body.website === "string" && body.website.trim().length > 0;
 }
 
 function renderSubmit(
   res: Response,
-  categories: CategoryOption[],
+  categoryOptions: CategoryOption[],
   values: Record<string, unknown>,
   options: { status?: number; errorKey?: string; draftToken?: string; uploadPaths?: string[] } = {},
 ): Promise<void> {
@@ -106,11 +117,13 @@ function renderSubmit(
     const captcha = await createMathChallenge(
       values._ipHash as string,
     );
+    const footerCategories = await getFooterCategories();
     await renderPage(
       res,
       "submit",
       {
-        categories,
+        categories: footerCategories,
+        categoryOptions,
         countries: messages.submit.countries,
         values,
         csrf: createCsrfToken(),
@@ -332,9 +345,11 @@ router.post("/submit", async (req: Request, res: Response) => {
     await fail("category");
     return;
   }
-  const validation = validateBoatListing(rawValues, categoryId, {
-    requirePassword: true,
-  });
+  const validation = validateBoatListing(
+    { ...rawValues, condition: rawValues.condition || "used" },
+    categoryId,
+    { requirePassword: true },
+  );
   if (!validation.ok) {
     await fail(validation.errorKey);
     return;
@@ -420,7 +435,8 @@ router.post("/submit", async (req: Request, res: Response) => {
     return;
   }
 
-  const authorPasswordHash = await bcrypt.hash(validation.value.authorPassword ?? "", 12);
+  const { authorPassword: authorPasswordPlaintext, ...listingValues } = validation.value;
+  const authorPasswordHash = await bcrypt.hash(authorPasswordPlaintext ?? "", 12);
   let listingId: number | undefined;
   try {
     await db.transaction(async (tx) => {
@@ -454,7 +470,7 @@ router.post("/submit", async (req: Request, res: Response) => {
       const [created] = await tx
         .insert(boatListings)
         .values({
-          ...validation.value,
+          ...listingValues,
           authorPasswordHash,
           submissionIpHash: ipHash,
           expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),

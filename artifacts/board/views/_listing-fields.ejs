@@ -1,0 +1,135 @@
+<%
+  const formValues = values || {};
+  const current = listing || {};
+  const fieldValue = (name) => {
+    const raw = formValues[name] ?? current[name] ?? "";
+    return typeof raw === "string" || typeof raw === "number" ? raw : "";
+  };
+  const checked = (name) =>
+    formValues[name] === "on" || formValues[name] === true || current[name] === true;
+%>
+
+<label class="form-field">
+  <span><%= t("submit.category") %></span>
+  <select name="categoryId" required data-category-select>
+    <option value=""><%= t("submit.category") %></option>
+    <% categories.forEach((category) => { %>
+      <option
+        value="<%= category.id %>"
+        data-vessel-fields="<%= category.hasVesselFields ? "1" : "0" %>"
+        data-engine-fields="<%= category.hasEngineFields ? "1" : "0" %>"
+        <%= String(fieldValue("categoryId")) === String(category.id) ? "selected" : "" %>>
+        <%= category.pathLabel %>
+      </option>
+    <% }) %>
+  </select>
+</label>
+
+<label class="form-field">
+  <span><%= t("submit.titleLabel") %></span>
+  <input name="title" maxlength="100" required value="<%= fieldValue("title") %>" autocomplete="off" />
+  <small><%= t("submit.titleHint") %></small>
+</label>
+
+<label class="form-field">
+  <span><%= t("submit.descriptionLabel") %></span>
+  <textarea name="description" rows="7" maxlength="3000" required><%= fieldValue("description") %></textarea>
+  <small><%= t("submit.descriptionHint") %></small>
+</label>
+
+<div class="form-grid form-grid-three">
+  <label class="form-field">
+    <span><%= t("submit.price") %></span>
+    <input name="price" type="number" min="0" step="0.01" value="<%= fieldValue("price") %>" />
+  </label>
+  <label class="form-field">
+    <span><%= t("submit.currency") %></span>
+    <select name="currency">
+      <% [["RUB","₽"],["USD","$"],["EUR","€"],["GBP","£"]].forEach(([code,symbol]) => { %>
+        <option value="<%= code %>" <%= (fieldValue("currency") || "RUB") === code ? "selected" : "" %>><%= code %> · <%= symbol %></option>
+      <% }) %>
+    </select>
+  </label>
+  <label class="form-field">
+    <span><%= t("submit.priceUnit") %></span>
+    <select name="priceUnit">
+      <% [["total","submit.priceTotal"],["day","submit.priceDay"],["week","submit.priceWeek"],["month","submit.priceMonth"],["year","submit.priceYear"]].forEach(([value,key]) => { %>
+        <option value="<%= value %>" <%= (fieldValue("priceUnit") || "total") === value ? "selected" : "" %>><%= t(key) %></option>
+      <% }) %>
+    </select>
+  </label>
+</div>
+
+<div class="form-grid form-grid-two">
+  <label class="form-field">
+    <span><%= t("submit.transactionType") %></span>
+    <select name="transactionType">
+      <option value="sale" <%= (fieldValue("transactionType") || "sale") === "sale" ? "selected" : "" %>><%= t("submit.sale") %></option>
+      <option value="rent" <%= fieldValue("transactionType") === "rent" ? "selected" : "" %>><%= t("submit.rent") %></option>
+    </select>
+  </label>
+  <label class="form-field checkbox-field">
+    <span><input name="isNegotiable" type="checkbox" <%= checked("isNegotiable") ? "checked" : "" %> /><%= t("submit.negotiable") %></span>
+  </label>
+</div>
+
+<fieldset class="form-fieldset" data-vessel-fields hidden>
+  <legend><%= t("submit.vesselDetails") %></legend>
+  <div class="form-grid form-grid-three">
+    <label class="form-field"><span><%= t("submit.year") %></span><input name="year" type="number" min="1900" max="<%= new Date().getFullYear() + 1 %>" value="<%= fieldValue("year") %>" /></label>
+    <label class="form-field"><span><%= t("submit.length") %></span><input name="lengthM" type="number" min="0.1" max="1000" step="0.01" value="<%= fieldValue("lengthM") %>" /></label>
+    <label class="form-field"><span><%= t("submit.width") %></span><input name="widthM" type="number" min="0.1" max="200" step="0.01" value="<%= fieldValue("widthM") %>" /></label>
+    <label class="form-field"><span><%= t("submit.manufacturer") %></span><input name="manufacturer" maxlength="100" value="<%= fieldValue("manufacturer") %>" /></label>
+    <label class="form-field"><span><%= t("submit.model") %></span><input name="model" maxlength="100" value="<%= fieldValue("model") %>" /></label>
+    <label class="form-field"><span><%= t("submit.condition") %></span>
+      <select name="condition">
+        <option value="used" <%= (fieldValue("condition") || "used") === "used" ? "selected" : "" %>><%= t("submit.used") %></option>
+        <option value="new" <%= fieldValue("condition") === "new" ? "selected" : "" %>><%= t("submit.new") %></option>
+      </select>
+    </label>
+  </div>
+  <div class="form-grid form-grid-three" data-engine-fields hidden>
+    <label class="form-field"><span><%= t("submit.engineType") %></span>
+      <select name="engineType">
+        <option value="none"><%= t("submit.engineNone") %></option>
+        <option value="outboard" <%= fieldValue("engineType") === "outboard" ? "selected" : "" %>><%= t("submit.engineOutboard") %></option>
+        <option value="inboard" <%= fieldValue("engineType") === "inboard" ? "selected" : "" %>><%= t("submit.engineInboard") %></option>
+        <option value="other" <%= fieldValue("engineType") === "other" ? "selected" : "" %>><%= t("submit.engineOther") %></option>
+      </select>
+    </label>
+    <label class="form-field"><span><%= t("submit.enginePower") %></span><input name="enginePowerHp" type="number" min="1" max="100000" step="1" value="<%= fieldValue("enginePowerHp") %>" /></label>
+    <label class="form-field"><span><%= t("submit.engineHours") %></span><input name="engineHours" type="number" min="0" max="10000000" step="0.1" value="<%= fieldValue("engineHours") %>" /></label>
+  </div>
+</fieldset>
+
+<div class="form-grid form-grid-two">
+  <label class="form-field">
+    <span><%= t("submit.country") %></span>
+    <input name="country" list="country-list" maxlength="100" required value="<%= fieldValue("country") || "Россия" %>" />
+    <datalist id="country-list"><% countries.forEach((country) => { %><option value="<%= country %>"></option><% }) %></datalist>
+  </label>
+  <label class="form-field"><span><%= t("submit.cityOrRegion") %></span><input name="cityOrRegion" maxlength="120" required value="<%= fieldValue("cityOrRegion") %>" /></label>
+</div>
+<label class="form-field"><span><%= t("submit.waterArea") %></span><input name="waterArea" maxlength="120" value="<%= fieldValue("waterArea") %>" /></label>
+
+<div class="form-grid form-grid-two">
+  <label class="form-field"><span><%= t("submit.contactName") %></span><input name="contactName" maxlength="80" required value="<%= fieldValue("contactName") %>" /></label>
+  <label class="form-field"><span><%= t("submit.phone") %></span><input name="contactPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+79991234567" required value="<%= fieldValue("contactPhone") %>" /><small><%= t("submit.phoneHint") %></small></label>
+</div>
+<div class="form-grid form-grid-two">
+  <label class="form-field"><span><%= t("submit.telegram") %></span><input name="telegram" maxlength="80" value="<%= fieldValue("telegram") %>" /></label>
+  <label class="form-field"><span><%= t("submit.whatsapp") %></span><input name="whatsapp" maxlength="80" value="<%= fieldValue("whatsapp") %>" /></label>
+</div>
+<label class="form-field">
+  <span><%= t("submit.email") %></span>
+  <input name="email" type="email" maxlength="254" autocomplete="email" value="<%= fieldValue("email") %>" />
+  <small><%= t("submit.emailHint") %></small>
+</label>
+
+<% if (showPassword) { %>
+  <label class="form-field">
+    <span><%= t("submit.password") %></span>
+    <input name="authorPassword" type="password" minlength="4" maxlength="72" autocomplete="new-password" required />
+    <small><%= t("submit.passwordHint") %></small>
+  </label>
+<% } %>
