@@ -41,6 +41,7 @@ import { getCategoryOptions } from "./form-routes";
 import { renderPage } from "./view";
 import { validateBoatListing } from "./listing-validation";
 import { deletePrivateObject, getPrivateObjectFile } from "./object-storage";
+import { passwordResetEmailEnabled } from "./email";
 
 const router = Router();
 const AUTHOR_COOKIE = "boat_author_access";
@@ -679,7 +680,8 @@ router.get("/listing/:slug/forgot-password", async (req, res) => {
     listingSlug: listing?.slug ?? req.params.slug,
     csrf: createCsrfToken(),
     error: null,
-    notice: null,
+    emailEnabled: passwordResetEmailEnabled,
+    notice: passwordResetEmailEnabled ? null : t("detail.resetUnavailable"),
     title: `${t("detail.resetTitle")} | ${messages.brand.name}`,
     description: t("detail.resetRequest"),
   }, listing ? 200 : 404);
@@ -689,6 +691,7 @@ router.post("/listing/:slug/forgot-password", async (req, res) => {
   const listing = await getFullActiveListing(req.params.slug);
   const footerCategories = await getFooterCategories();
   const genericNotice = t("detail.resetSent");
+  const emailEnabled = passwordResetEmailEnabled;
   if (!validFormRequest(req)) {
     await renderPage(res, "forgot-password", {
       categories: footerCategories,
@@ -696,9 +699,23 @@ router.post("/listing/:slug/forgot-password", async (req, res) => {
       csrf: createCsrfToken(),
       error: t("formErrors.csrf"),
       notice: null,
+      emailEnabled,
       title: t("detail.resetTitle"),
       description: t("detail.resetRequest"),
     }, 403);
+    return;
+  }
+  if (!emailEnabled) {
+    await renderPage(res, "forgot-password", {
+      categories: footerCategories,
+      listingSlug: req.params.slug,
+      csrf: createCsrfToken(),
+      error: null,
+      notice: t("detail.resetUnavailable"),
+      emailEnabled,
+      title: t("detail.resetTitle"),
+      description: t("detail.resetRequest"),
+    }, 503);
     return;
   }
   if (
@@ -715,6 +732,7 @@ router.post("/listing/:slug/forgot-password", async (req, res) => {
       csrf: createCsrfToken(),
       error: t("formErrors.rateLimit"),
       notice: null,
+      emailEnabled,
       title: t("detail.resetTitle"),
       description: t("detail.resetRequest"),
     }, 429);
@@ -758,6 +776,7 @@ router.post("/listing/:slug/forgot-password", async (req, res) => {
     csrf: createCsrfToken(),
     error: null,
     notice: genericNotice,
+    emailEnabled,
     title: t("detail.resetTitle"),
     description: t("detail.resetRequest"),
   });
