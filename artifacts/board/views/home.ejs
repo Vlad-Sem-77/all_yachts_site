@@ -1,0 +1,77 @@
+<section class="hero">
+  <div class="hero-copy">
+    <p class="eyebrow"><%= t('home.eyebrow') %></p>
+    <h1><%= t('home.headline') %></h1>
+    <p class="hero-description"><%= t('home.subheadline') %></p>
+    <a class="primary-link" href="#categories"><%= t('nav.allCategories') %><span aria-hidden="true">→</span></a>
+  </div>
+  <div class="hero-illustration" aria-hidden="true">
+    <div class="sun"></div>
+    <div class="water-line water-line-one"></div>
+    <div class="water-line water-line-two"></div>
+    <div class="boat-shape"><span></span></div>
+    <div class="hero-coordinate">55°45′ N<br />37°37′ E</div>
+  </div>
+</section>
+
+<section class="content-section" id="categories">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow"><%= t('nav.categories') %></p>
+      <h2><%= t('home.categoriesHeading') %></h2>
+    </div>
+    <p><%= t('home.categoriesDescription') %></p>
+  </div>
+  <div class="category-grid">
+    <% categories.forEach((category, index) => { %>
+      <article class="category-card">
+        <a class="category-main-link" href="/category/<%= category.slug %>">
+          <span class="category-number"><%= String(index + 1).padStart(2, "0") %></span>
+          <span class="category-copy">
+            <strong><%= category.nameRu %></strong>
+            <small><%= category.count %> <%= t('category.listingsCount', { count: category.count }) %></small>
+          </span>
+          <span class="category-arrow" aria-hidden="true">↗</span>
+        </a>
+        <% if (category.children.length) { %>
+          <div class="subcategory-links">
+            <% category.children.forEach((child) => { %>
+              <a href="/category/<%= category.slug %>/<%= child.slug %>"><%= child.nameRu %></a>
+            <% }) %>
+          </div>
+        <% } %>
+      </article>
+    <% }) %>
+  </div>
+</section>
+
+<section class="content-section latest-section">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow"><%= t('home.latestHeading') %></p>
+      <h2><%= t('home.latestHeading') %></h2>
+    </div>
+  </div>
+  <% if (listings.length) { %>
+    <div class="listing-grid">
+      <% listings.forEach((listing) => { %>
+        <article class="listing-card">
+          <div class="listing-card-image"><span><%= t('listing.photoComingSoon') %></span></div>
+          <div class="listing-card-body">
+            <h3><%= listing.title %></h3>
+            <p class="listing-location"><%= listing.country %><%= t('listing.locationSeparator') %><%= listing.cityOrRegion %></p>
+            <strong class="listing-price"><%= formatPrice(listing.price, listing.currency, listing.isNegotiable, t) %></strong>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="empty-state">
+      <span class="empty-mark" aria-hidden="true">⌁</span>
+      <div>
+        <h3><%= t('home.emptyTitle') %></h3>
+        <p><%= t('home.emptyDescription') %></p>
+      </div>
+    </div>
+  <% } %>
+</section>

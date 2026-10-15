@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="<%= lang %>">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="<%= description || t('home.description') %>" />
+    <meta property="og:title" content="<%= title || t('home.title') %>" />
+    <meta property="og:description" content="<%= description || t('home.description') %>" />
+    <meta property="og:type" content="website" />
+    <title><%= title || t('home.title') %></title>
+    <link rel="stylesheet" href="/assets/site.css" />
+    <link rel="icon" href="/assets/anchor.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="header-inner">
+          <a class="brand" href="/" aria-label="<%= t('nav.home') %>">
+            <span class="brand-mark" aria-hidden="true">Л</span>
+            <span class="brand-name"><%= t('brand.name') %><small><%= t('brand.tagline') %></small></span>
+          </a>
+          <nav class="main-nav" aria-label="<%= t('accessibility.mainNavigation') %>">
+            <a href="/#categories"><%= t('nav.categories') %></a>
+          </nav>
+        </div>
+      </header>
+      <main id="main-content">
+        <%- body %>
+      </main>
+      <footer class="site-footer">
+        <div class="footer-inner">
+          <div>
+            <a class="footer-brand" href="/"><%= t('brand.name') %></a>
+            <p><%= t('footer.tagline') %></p>
+          </div>
+          <div class="footer-categories">
+            <strong><%= t('footer.categories') %></strong>
+            <div>
+              <% categories.forEach((category) => { %>
+                <a href="/category/<%= category.slug %>"><%= category.nameRu %></a>
+              <% }) %>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

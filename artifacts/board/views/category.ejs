@@ -1,0 +1,55 @@
+<section class="category-hero">
+  <nav class="breadcrumbs" aria-label="<%= t('accessibility.breadcrumb') %>">
+    <a href="/"><%= t('nav.home') %></a>
+    <span aria-hidden="true">/</span>
+    <% if (category.parentId) { %>
+      <a href="/category/<%= categories.find((item) => item.id === category.parentId)?.slug %>"><%= categories.find((item) => item.id === category.parentId)?.nameRu %></a>
+      <span aria-hidden="true">/</span>
+    <% } %>
+    <span aria-current="page"><%= category.nameRu %></span>
+  </nav>
+  <p class="eyebrow"><%= t('nav.categories') %></p>
+  <h1><%= category.nameRu %></h1>
+  <p><%= category.descriptionRu || t('category.description', { name: category.nameRu }) %></p>
+</section>
+
+<% if (category.children.length) { %>
+  <section class="content-section subcategory-section">
+    <div class="section-heading">
+      <div><p class="eyebrow"><%= t('category.subcategories') %></p><h2><%= t('category.subcategories') %></h2></div>
+    </div>
+    <div class="subcategory-grid">
+      <% category.children.forEach((child) => { %>
+        <a class="subcategory-card" href="/category/<%= category.slug %>/<%= child.slug %>">
+          <span><%= child.nameRu %></span><span aria-hidden="true">→</span>
+        </a>
+      <% }) %>
+    </div>
+  </section>
+<% } %>
+
+<section class="content-section category-listings">
+  <div class="section-heading">
+    <div><p class="eyebrow"><%= t('category.listingsHeading') %></p><h2><%= t('category.listingsHeading') %></h2></div>
+    <span class="listing-total"><%= total %> <%= t('category.listingsCount', { count: total }) %></span>
+  </div>
+  <% if (listings.length) { %>
+    <div class="listing-grid">
+      <% listings.forEach((listing) => { %>
+        <article class="listing-card">
+          <div class="listing-card-image"><span><%= t('listing.photoComingSoon') %></span></div>
+          <div class="listing-card-body">
+            <h3><%= listing.title %></h3>
+            <p class="listing-location"><%= listing.country %><%= t('listing.locationSeparator') %><%= listing.cityOrRegion %></p>
+            <strong class="listing-price"><%= formatPrice(listing.price, listing.currency, listing.isNegotiable, t) %></strong>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="empty-state">
+      <span class="empty-mark" aria-hidden="true">⌁</span>
+      <div><h3><%= t('category.emptyTitle') %></h3><p><%= t('category.emptyDescription') %></p></div>
+    </div>
+  <% } %>
+</section>

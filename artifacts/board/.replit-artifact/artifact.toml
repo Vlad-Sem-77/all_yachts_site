@@ -1,7 +1,7 @@
 kind = "web"
 previewPath = "/"
-title = "Доска объявлений"
-description = "Русскоязычная доска объявлений с каталогом предложений, поиском и фильтрами, просмотром подробностей и формой публикации."
+title = "Лодки, катера, яхты"
+description = "Русскоязычная доска объявлений о лодках, катерах, яхтах, моторах и оборудовании."
 version = "1.0.0"
 id = "artifacts/board"
 router = "path"
@@ -15,13 +15,22 @@ localPort = 21663
 run = "pnpm --filter @workspace/board run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/board", "run", "build" ]
-serve = "static"
-publicDir = "artifacts/board/dist/public"
 
-[[services.production.rewrites]]
-from = "/*"
-to = "/index.html"
+[services.production.build]
+args = [ "pnpm", "--filter", "@workspace/board", "run", "build" ]
+
+[services.production.build.env]
+NODE_ENV = "production"
+
+[services.production.run]
+args = [ "node", "--enable-source-maps", "artifacts/board/dist/server.mjs" ]
+
+[services.production.run.env]
+PORT = "21663"
+NODE_ENV = "production"
+
+[services.production.health.startup]
+path = "/"
 
 [services.env]
 PORT = "21663"
