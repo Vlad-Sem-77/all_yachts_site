@@ -45,6 +45,7 @@
                 <a href="/category/<%= listing.categoryPath %>/<%= listing.slug %>" target="_blank" rel="noreferrer"><%= listing.title %></a>
               <% } else { %><%= listing.title %><% } %>
             </h2>
+            <p><a class="text-link" href="/admin/listings/<%= listing.id %>/edit"><%= t("admin.editListing") %></a></p>
             <p><%= listing.categoryName || t("admin.unknownCategory") %> · <%= listing.country %><%= t("listing.locationSeparator") %><%= listing.cityOrRegion %></p>
             <p class="admin-listing-meta"><%= listing.price === null ? t("listing.negotiable") : `${listing.price} ${listing.currency}` %> · <%= t("admin.created") %> <%= new Date(listing.createdAt).toLocaleDateString("ru-RU") %><% if (listing.expiresAt) { %> · <%= t("admin.expires") %> <%= new Date(listing.expiresAt).toLocaleDateString("ru-RU") %><% } %></p>
             <div class="admin-action-groups">
@@ -56,7 +57,7 @@
               </form>
               <form method="post" action="/admin/listings/<%= listing.id %>/action" class="admin-merch-form">
                 <input type="hidden" name="_csrf" value="<%= csrf %>" />
-                <label class="form-field"><span><%= t("admin.until") %></span><input type="date" name="until" required /></label>
+                <label class="form-field"><span><%= t("admin.until") %></span><input type="date" name="until" /></label>
                 <div class="admin-inline-actions">
                   <% if (!listing.isPinned) { %><button class="secondary-button" name="action" value="pin"><%= t("admin.pin") %></button><% } else { %><button class="secondary-button" name="action" value="unpin"><%= t("admin.unpin") %></button><% } %>
                   <% if (!listing.isFeatured) { %><button class="secondary-button" name="action" value="feature"><%= t("admin.feature") %></button><% } else { %><button class="secondary-button" name="action" value="unfeature"><%= t("admin.unfeature") %></button><% } %>

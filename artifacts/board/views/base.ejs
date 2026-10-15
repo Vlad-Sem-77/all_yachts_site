@@ -4,13 +4,29 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="<%= description || t('home.description') %>" />
+    <meta name="robots" content="<%= robots %>" />
     <meta property="og:title" content="<%= title || t('home.title') %>" />
     <meta property="og:description" content="<%= description || t('home.description') %>" />
-    <meta property="og:type" content="website" />
+    <meta property="og:type" content="<%= ogType %>" />
+    <% if (canonicalUrl) { %>
+      <link rel="canonical" href="<%= canonicalUrl %>" />
+      <meta property="og:url" content="<%= canonicalUrl %>" />
+    <% } %>
+    <% if (ogImage) { %><meta property="og:image" content="<%= ogImage %>" /><% } %>
+    <meta name="twitter:card" content="<%= ogImage ? 'summary_large_image' : 'summary' %>" />
     <title><%= title || t('home.title') %></title>
     <link rel="stylesheet" href="/assets/site.css" />
     <link rel="stylesheet" href="/assets/listing.css" />
     <link rel="icon" href="/assets/emblem.png" type="image/png" />
+    <% if (structuredData) { %><script type="application/ld+json"><%- structuredData %></script><% } %>
+    <% if (analyticsAllowed && yandexMetrikaId) { %>
+      <script>window.ym=window.ym||function(){(window.ym.a=window.ym.a||[]).push(arguments)};window.ym.l=+new Date();ym(<%= yandexMetrikaId %>,"init",{clickmap:true,trackLinks:true,accurateTrackBounce:true});</script>
+      <script async src="https://mc.yandex.ru/metrika/tag.js"></script>
+    <% } %>
+    <% if (analyticsAllowed && googleAnalyticsId) { %>
+      <script async src="https://www.googletagmanager.com/gtag/js?id=<%= googleAnalyticsId %>"></script>
+      <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)}gtag("js",new Date());gtag("config","<%= googleAnalyticsId %>");</script>
+    <% } %>
   </head>
   <body>
     <div class="site-shell">
@@ -46,6 +62,16 @@
         </div>
       </footer>
     </div>
+    <% if (analyticsEnabled && !analyticsDecisionMade) { %>
+      <aside class="cookie-consent" data-cookie-consent role="dialog" aria-label="<%= t('cookieConsent.title') %>">
+        <p><%= cookieConsentText %></p>
+        <div>
+          <button class="secondary-button" type="button" data-consent="reject"><%= cookieRejectText %></button>
+          <button class="primary-button" type="button" data-consent="accept"><%= cookieAcceptText %></button>
+        </div>
+      </aside>
+    <% } %>
     <script src="/assets/interaction.js" defer></script>
+    <% if (analyticsEnabled) { %><script src="/assets/cookie-consent.js" defer></script><% } %>
   </body>
 </html>

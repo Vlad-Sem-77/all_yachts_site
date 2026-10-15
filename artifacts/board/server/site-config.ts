@@ -1,4 +1,3 @@
-import { eq } from "drizzle-orm";
 import { db, siteSettings } from "@workspace/db";
 
 export type CurrencyOption = { code: string; symbol: string };
@@ -135,16 +134,18 @@ export async function saveSiteSettings(values: Record<string, string>): Promise<
     "new_listing_notification_email",
     "rules_body",
   ]);
-  for (const [key, value] of Object.entries(values)) {
-    if (!allowedKeys.has(key)) throw new Error("Unknown site setting.");
-    await db
-      .insert(siteSettings)
-      .values({ key, value, updatedAt: new Date() })
-      .onConflictDoUpdate({
-        target: siteSettings.key,
-        set: { value, updatedAt: new Date() },
-      });
-  }
+  await db.transaction(async (tx) => {
+    for (const [key, value] of Object.entries(values)) {
+      if (!allowedKeys.has(key)) throw new Error("Unknown site setting.");
+      await tx
+        .insert(siteSettings)
+        .values({ key, value, updatedAt: new Date() })
+        .onConflictDoUpdate({
+          target: siteSettings.key,
+          set: { value, updatedAt: new Date() },
+        });
+    }
+  });
   cached = null;
   await getSiteConfig(true);
 }
@@ -178,10 +179,3 @@ export function isEmail(value: string): boolean {
   return value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
 }
 
-export function settingsValueExists(key: string): Promise<boolean> {
-  return db
-    .select({ key: siteSettings.key })
-    .from(siteSettings)
-    .where(eq(siteSettings.key, key))
-    .then((rows) => Boolean(rows.length));
-}

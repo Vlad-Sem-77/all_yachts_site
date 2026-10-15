@@ -58,6 +58,7 @@ export const boatListings = pgTable(
     isPinned: boolean("is_pinned").notNull().default(false),
     pinnedUntil: timestamp("pinned_until", { withTimezone: true }),
     reminderSentAt: timestamp("reminder_sent_at", { withTimezone: true }),
+    reminderClaimedAt: timestamp("reminder_claimed_at", { withTimezone: true }),
     priority: integer("priority").notNull().default(0),
     paidStatus: text("paid_status").notNull().default("free"),
     createdAt: timestamp("created_at", { withTimezone: true })

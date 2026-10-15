@@ -30,6 +30,8 @@ import {
 import { messages, t } from "./localization";
 import { renderPage } from "./view";
 import { stringList, validateBoatListing } from "./listing-validation";
+import { getSiteConfig } from "./site-config";
+import { sendSiteEmail, smtpConfigured } from "./email";
 
 const MAX_FILE_BYTES = 8 * 1024 * 1024;
 const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -118,13 +120,15 @@ function renderSubmit(
       values._ipHash as string,
     );
     const footerCategories = await getFooterCategories();
+    const siteConfig = await getSiteConfig();
     await renderPage(
       res,
       "submit",
       {
         categories: footerCategories,
         categoryOptions,
-        countries: messages.submit.countries,
+        countries: siteConfig.countries,
+        currencies: siteConfig.currencies,
         values,
         csrf: createCsrfToken(),
         captcha,
@@ -235,9 +239,11 @@ router.get("/submit", async (req, res) => {
 });
 
 router.get("/rules", async (_req, res) => {
+  const siteConfig = await getSiteConfig();
   await renderPage(res, "rules", {
     title: `${t("rules.title")} | ${messages.brand.name}`,
-    description: t("rules.body"),
+    description: siteConfig.rulesBody,
+    rulesBody: siteConfig.rulesBody,
   });
 });
 
@@ -352,6 +358,11 @@ router.post("/submit", async (req: Request, res: Response) => {
   );
   if (!validation.ok) {
     await fail(validation.errorKey);
+    return;
+  }
+  const siteConfig = await getSiteConfig();
+  if (!siteConfig.currencies.some((currency) => currency.code === validation.value.currency)) {
+    await fail("generic");
     return;
   }
   if (
@@ -522,6 +533,19 @@ router.post("/submit", async (req: Request, res: Response) => {
   ]);
   const listingSlug = `${slugPart(validation.value.title) || "obyavlenie"}-${listingId}`;
   const categoryPath = category.parentSlug ?? category.slug;
+  if (smtpConfigured() && siteConfig.newListingNotificationEmail) {
+    const listingUrl = `${siteConfig.siteUrl || `${req.protocol}://${req.get("host")}`}/category/${categoryPath}/${listingSlug}`;
+    try {
+      await sendSiteEmail(
+        siteConfig.newListingNotificationEmail,
+        "Новое объявление на сайте",
+        `Добавлено объявление «${validation.value.title}».\n${listingUrl}`,
+        `<p>Добавлено объявление «${validation.value.title.replace(/[&<>"']/g, "")}».</p><p><a href="${listingUrl}">Открыть объявление</a></p>`,
+      );
+    } catch {
+      req.log?.error("New-listing notification email could not be sent");
+    }
+  }
   res.redirect(303, `/category/${categoryPath}/${listingSlug}?published=1`);
 });
 

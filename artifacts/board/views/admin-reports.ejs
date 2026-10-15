@@ -4,6 +4,7 @@
   <%- include("_admin-nav") %>
 </section>
 <section class="content-section admin-content">
+  <% if (notice) { %><div class="notice-banner"><%= notice %></div><% } %>
   <div class="admin-tabs">
     <% ["new","reviewed","dismissed"].forEach((status) => { %>
       <a class="<%= reportStatus === status ? 'is-active' : '' %>" href="/admin/reports?status=<%= status %>"><%= t(`admin.reportStatuses.${status}`) %></a>
@@ -18,7 +19,7 @@
             <time><%= new Date(report.createdAt).toLocaleString("ru-RU") %></time>
           </div>
           <h2>
-            <% if (report.listingSlug) { %><a href="/admin/listings?status=<%= report.listingStatus %>"><%= report.listingTitle %></a><% } else { %><%= report.listingTitle %><% } %>
+            <% if (report.listingSlug) { %><a href="/admin/listings/<%= report.listingId %>/edit"><%= report.listingTitle %></a><% } else { %><%= report.listingTitle %><% } %>
           </h2>
           <p><strong><%= t("admin.reportReason") %>:</strong> <%= t(`detail.reportReasons.${report.reason}`) %></p>
           <% if (report.details) { %><p class="admin-report-details"><%= report.details %></p><% } %>

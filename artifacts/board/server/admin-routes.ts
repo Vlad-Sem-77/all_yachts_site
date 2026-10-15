@@ -8,12 +8,10 @@ import {
   ilike,
   inArray,
   isNull,
-  lt,
   or,
-  sql,
   sum,
 } from "drizzle-orm";
-import { Router, type Request, type Response } from "express";
+import { Router, type Request, type RequestHandler, type Response } from "express";
 import {
   boatCategories,
   boatListings,
@@ -25,6 +23,7 @@ import {
   listingRateLimitEvents,
   listingReports,
   listingViewEvents,
+  listingsTable,
   pendingListingUploads,
   siteSettings,
 } from "@workspace/db";
@@ -54,6 +53,7 @@ import {
   validFormRequest,
 } from "./security";
 import { renderPage } from "./view";
+import { getCategoryOptions } from "./form-routes";
 
 const router = Router();
 const PAGE_SIZE = 30;
@@ -71,6 +71,12 @@ router.use((_req, res, next) => {
 function text(value: unknown, maxLength: number): string {
   return typeof value === "string"
     ? value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, maxLength)
+    : "";
+}
+
+function multiline(value: unknown, maxLength: number): string {
+  return typeof value === "string"
+    ? value.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "").trim().slice(0, maxLength)
     : "";
 }
 
@@ -142,13 +148,13 @@ async function renderAdmin(
   );
 }
 
-function adminRequired(req: Request, res: Response, next: () => void): void {
+const adminRequired: RequestHandler = (req, res, next) => {
   if (!hasAdminSession(req)) {
     res.redirect(303, "/admin/login");
     return;
   }
   next();
-}
+};
 
 router.get("/admin/login", async (req, res) => {
   if (hasAdminSession(req)) {
@@ -213,7 +219,10 @@ router.get("/admin", adminRequired, async (_req, res) => {
     db
       .select({ value: count() })
       .from(boatListings)
-      .where(eq(boatListings.status, "active")),
+      .where(and(
+        eq(boatListings.status, "active"),
+        or(isNull(boatListings.expiresAt), gte(boatListings.expiresAt, now)),
+      )),
     db
       .select({ value: count() })
       .from(boatListings)
@@ -341,7 +350,12 @@ router.get("/admin/listings", adminRequired, async (req, res) => {
     if (!photoByListing.has(photo.listingId)) photoByListing.set(photo.listingId, photo.photoId);
   }
   const categories = await db
-    .select({ id: boatCategories.id, slug: boatCategories.slug, nameRu: boatCategories.nameRu })
+    .select({
+      id: boatCategories.id,
+      slug: boatCategories.slug,
+      nameRu: boatCategories.nameRu,
+      parentId: boatCategories.parentId,
+    })
     .from(boatCategories)
     .orderBy(asc(boatCategories.sortOrder), asc(boatCategories.id));
   const pages = Array.from({ length: Math.min(pageCount, 9) }, (_, index) =>
@@ -350,6 +364,9 @@ router.get("/admin/listings", adminRequired, async (req, res) => {
   await renderAdmin(res, "admin-listings", {
     listings: rows.map((row) => ({
       ...row,
+      categoryPath: categories.find((category) => category.id === row.categoryId)?.parentId
+        ? categories.find((category) => category.id === categories.find((item) => item.id === row.categoryId)?.parentId)?.slug
+        : categories.find((category) => category.id === row.categoryId)?.slug,
       thumbnailUrl: photoByListing.has(row.id)
         ? `/media/${photoByListing.get(row.id)}/thumb`
         : null,
@@ -360,7 +377,99 @@ router.get("/admin/listings", adminRequired, async (req, res) => {
     page,
     pageCount,
     pages,
+    notice: req.query.notice === "saved"
+      ? t("admin.saved")
+      : req.query.notice === "invalid-date"
+        ? t("admin.invalidDate")
+        : req.query.notice === "invalid-priority"
+          ? t("admin.invalidPriority")
+          : req.query.notice === "deleted"
+            ? t("admin.cannotRestoreDeleted")
+            : null,
   });
+});
+
+router.get("/admin/listings/:id/edit", adminRequired, async (req, res) => {
+  const id = integer(req.params.id, 1, 2_147_483_647);
+  if (!id) {
+    res.sendStatus(400);
+    return;
+  }
+  const [listing] = await db.select().from(boatListings).where(eq(boatListings.id, id)).limit(1);
+  if (!listing) {
+    res.sendStatus(404);
+    return;
+  }
+  const [categoryOptions] = await Promise.all([getCategoryOptions()]);
+  await renderAdmin(res, "admin-listing-edit", {
+    listing,
+    categoryOptions,
+    csrf: createCsrfToken(),
+    values: {},
+    editError: null,
+  });
+});
+
+router.post("/admin/listings/:id/edit", adminRequired, async (req, res) => {
+  if (!adminCsrf(req)) {
+    res.sendStatus(403);
+    return;
+  }
+  const id = integer(req.params.id, 1, 2_147_483_647);
+  if (!id) {
+    res.sendStatus(400);
+    return;
+  }
+  const [listing] = await db.select().from(boatListings).where(eq(boatListings.id, id)).limit(1);
+  if (!listing) {
+    res.sendStatus(404);
+    return;
+  }
+  const values = {
+    title: text(req.body?.title, 120),
+    description: multiline(req.body?.description, 10_000),
+    categoryId: integer(req.body?.categoryId, 1, 2_147_483_647),
+    priceText: text(req.body?.price, 32),
+    currency: text(req.body?.currency, 3).toUpperCase(),
+    country: text(req.body?.country, 100),
+    cityOrRegion: text(req.body?.cityOrRegion, 100),
+  };
+  const options = await getCategoryOptions();
+  const siteConfig = await getSiteConfig();
+  const price = values.priceText === "" ? null : Number(values.priceText);
+  const valid =
+    values.title.length >= 4 &&
+    values.description.length >= 20 &&
+    values.description.length <= 10_000 &&
+    values.categoryId !== null &&
+    options.some((item) => item.id === values.categoryId) &&
+    siteConfig.currencies.some((currency) => currency.code === values.currency) &&
+    (price === null || (Number.isFinite(price) && price >= 0 && price <= 9_999_999_999.99)) &&
+    /^[A-Z]{3}$/.test(values.currency) &&
+    values.country.length > 0 &&
+    values.cityOrRegion.length > 0;
+  if (!valid) {
+    await renderAdmin(res, "admin-listing-edit", {
+      listing,
+      categoryOptions: options,
+      csrf: createCsrfToken(),
+      values,
+      editError: t("admin.invalidListingEdit"),
+    }, 400);
+    return;
+  }
+  await db.update(boatListings).set({
+    title: values.title,
+    description: values.description,
+    categoryId: values.categoryId!,
+    price,
+    isNegotiable: price === null,
+    currency: values.currency,
+    country: values.country,
+    cityOrRegion: values.cityOrRegion,
+    updatedAt: new Date(),
+  }).where(eq(boatListings.id, id));
+  res.redirect(303, "/admin/listings?notice=saved");
 });
 
 function merchandisingUntil(value: unknown): Date | null {
@@ -388,7 +497,11 @@ router.post("/admin/listings/:id/action", adminRequired, async (req, res) => {
     return;
   }
   const [listing] = await db
-    .select({ id: boatListings.id, status: boatListings.status })
+    .select({
+      id: boatListings.id,
+      status: boatListings.status,
+      expiresAt: boatListings.expiresAt,
+    })
     .from(boatListings)
     .where(eq(boatListings.id, id))
     .limit(1);
@@ -405,11 +518,15 @@ router.post("/admin/listings/:id/action", adminRequired, async (req, res) => {
       res.redirect(303, "/admin/listings?status=deleted&notice=deleted");
       return;
     }
+    const expiry = listing.expiresAt && listing.expiresAt.getTime() > now.getTime()
+      ? listing.expiresAt
+      : new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
     await db
       .update(boatListings)
       .set({
         status: "active",
-        expiresAt: sql`CASE WHEN ${boatListings.expiresAt} IS NULL OR ${boatListings.expiresAt} <= ${now} THEN ${new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)} ELSE ${boatListings.expiresAt} END`,
+        expiresAt: expiry,
+        reminderSentAt: null,
         updatedAt: now,
       })
       .where(eq(boatListings.id, id));
@@ -469,7 +586,11 @@ router.get("/admin/reports", adminRequired, async (req, res) => {
     .where(eq(listingReports.status, status))
     .orderBy(desc(listingReports.createdAt))
     .limit(100);
-  await renderAdmin(res, "admin-reports", { reports: rows, reportStatus: status });
+  await renderAdmin(res, "admin-reports", {
+    reports: rows,
+    reportStatus: status,
+    notice: req.query.notice === "saved" ? t("admin.saved") : null,
+  });
 });
 
 router.post("/admin/reports/:id/action", adminRequired, async (req, res) => {
@@ -507,10 +628,10 @@ router.post("/admin/reports/:id/action", adminRequired, async (req, res) => {
       })
       .where(eq(listingReports.id, id));
   });
-  res.redirect(303, `/admin/reports?status=${action === "dismiss" ? "new" : "new"}&notice=saved`);
+  res.redirect(303, "/admin/reports?status=new&notice=saved");
 });
 
-router.get("/admin/categories", adminRequired, async (_req, res) => {
+router.get("/admin/categories", adminRequired, async (req, res) => {
   const rows = await db
     .select({
       id: boatCategories.id,
@@ -529,6 +650,11 @@ router.get("/admin/categories", adminRequired, async (_req, res) => {
       parentName: rows.find((parent) => parent.id === row.parentId)?.nameRu ?? "",
     })),
     rootCategories: rows.filter((row) => row.parentId === null),
+    notice: req.query.notice === "saved"
+      ? t("admin.saved")
+      : req.query.notice === "invalid"
+        ? t("admin.invalidCategory")
+        : null,
   });
 });
 
@@ -615,7 +741,7 @@ router.post("/admin/settings", adminRequired, async (req, res) => {
     res.sendStatus(403);
     return;
   }
-  const currenciesText = text(req.body?.currencies, 5000);
+  const currenciesText = multiline(req.body?.currencies, 5000);
   const currencyLines = currenciesText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   const currencies = currencyLines.map((line) => {
     const separator = line.indexOf("|");
@@ -625,7 +751,7 @@ router.post("/admin/settings", adminRequired, async (req, res) => {
     };
   });
   const countries = [...new Set(
-    text(req.body?.countries, 30_000)
+    multiline(req.body?.countries, 30_000)
       .split(/\r?\n/)
       .map((value) => value.trim())
       .filter((value) => value.length > 0),
@@ -635,7 +761,7 @@ router.post("/admin/settings", adminRequired, async (req, res) => {
   const google = text(req.body?.googleAnalyticsId, 30).toUpperCase();
   const reportEmail = text(req.body?.reportNotificationEmail, 254).toLowerCase();
   const listingEmail = text(req.body?.newListingNotificationEmail, 254).toLowerCase();
-  const rulesBody = text(req.body?.rulesBody, 5000);
+  const rulesBody = multiline(req.body?.rulesBody, 5000);
   const currenciesValid =
     currencies.length >= 1 &&
     currencies.length <= 100 &&
@@ -708,6 +834,7 @@ router.get("/admin/export", adminRequired, async (req, res) => {
   });
   res.write(`{"exportedAt":${JSON.stringify(new Date().toISOString())},"tables":{`);
   const tables: Array<{ name: string; load: () => Promise<unknown[]> }> = [
+    { name: "listings", load: () => db.select().from(listingsTable) },
     { name: "boat_categories", load: () => db.select().from(boatCategories) },
     { name: "boat_listings", load: () => db.select().from(boatListings) },
     { name: "listing_photos", load: () => db.select().from(listingPhotos) },

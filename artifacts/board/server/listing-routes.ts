@@ -47,6 +47,8 @@ import { renderPage } from "./view";
 import { validateBoatListing } from "./listing-validation";
 import { deletePrivateObject, getPrivateObjectFile } from "./object-storage";
 import { passwordResetEmailEnabled } from "./email";
+import { getSiteConfig } from "./site-config";
+import { sendSiteEmail, smtpConfigured } from "./email";
 
 const router = Router();
 const AUTHOR_COOKIE = "boat_author_access";
@@ -162,7 +164,10 @@ function catalogConditions(
   categoryIds: number[] | undefined,
   filters: CatalogFilters,
 ): SQL[] {
-  const conditions: SQL[] = [eq(boatListings.status, "active")];
+  const conditions: SQL[] = [
+    eq(boatListings.status, "active"),
+    or(isNull(boatListings.expiresAt), gte(boatListings.expiresAt, new Date()))!,
+  ];
   if (categoryIds) conditions.push(inArray(boatListings.categoryId, categoryIds));
 
   if (filters.q) {
@@ -197,14 +202,15 @@ function catalogConditions(
 
 function merchandisingOrder() {
   return [
+    desc(sql`CASE WHEN ${boatListings.isPinned} = true AND (${boatListings.pinnedUntil} IS NULL OR ${boatListings.pinnedUntil} >= CURRENT_TIMESTAMP) THEN 1 ELSE 0 END`),
     desc(boatListings.priority),
     desc(
       sql`CASE WHEN ${boatListings.isFeatured} = true AND (${boatListings.featuredUntil} IS NULL OR ${boatListings.featuredUntil} >= CURRENT_TIMESTAMP) THEN 1 ELSE 0 END`,
     ),
     desc(
-      sql`CASE WHEN ${boatListings.boostedAt} IS NULL THEN 0 ELSE 1 END`,
+      sql`CASE WHEN ${boatListings.boostedAt} IS NOT NULL AND (${boatListings.boostedUntil} IS NULL OR ${boatListings.boostedUntil} >= CURRENT_TIMESTAMP) THEN 1 ELSE 0 END`,
     ),
-    desc(boatListings.boostedAt),
+    desc(sql`CASE WHEN ${boatListings.boostedAt} IS NOT NULL AND (${boatListings.boostedUntil} IS NULL OR ${boatListings.boostedUntil} >= CURRENT_TIMESTAMP) THEN ${boatListings.boostedAt} ELSE NULL END`),
   ];
 }
 
@@ -369,7 +375,7 @@ function formatPrice(
   return `${amount} ${symbols[currency] ?? currency}`;
 }
 
-async function getActiveListingBySlug(slug: string) {
+async function getListingBySlug(slug: string) {
   const [listing] = await db
     .select({
       id: boatListings.id,
@@ -401,8 +407,20 @@ async function getActiveListingBySlug(slug: string) {
       expiresAt: boatListings.expiresAt,
     })
     .from(boatListings)
-    .where(and(eq(boatListings.slug, slug), eq(boatListings.status, "active")))
+    .where(eq(boatListings.slug, slug))
     .limit(1);
+  return listing;
+}
+
+async function getActiveListingBySlug(slug: string) {
+  const listing = await getListingBySlug(slug);
+  if (
+    !listing ||
+    listing.status !== "active" ||
+    (listing.expiresAt !== null && listing.expiresAt.getTime() <= Date.now())
+  ) {
+    return undefined;
+  }
   return listing;
 }
 
@@ -412,9 +430,26 @@ async function renderListing(
   next: NextFunction,
 ): Promise<void> {
   const slug = String(req.params.slug);
-  const listing = await getActiveListingBySlug(slug);
+  const listing = await getListingBySlug(slug);
   if (!listing) {
     next();
+    return;
+  }
+  const expired = listing.expiresAt !== null && listing.expiresAt.getTime() <= Date.now();
+  if (listing.status !== "active" || expired) {
+    res.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    await renderPage(
+      res,
+      "not-found",
+      {
+        categories: await getFooterCategories(),
+        title: t("detail.notFoundTitle"),
+        heading: t("detail.notFoundTitle"),
+        message: t("detail.notFoundDescription"),
+        robots: "noindex, nofollow, noarchive",
+      },
+      listing.status === "deleted" || listing.status === "expired" || expired ? 410 : 404,
+    );
     return;
   }
   const [category] = await db
@@ -483,6 +518,50 @@ async function renderListing(
   } as Record<string, string>;
   const isPublishedNotice = req.query.published === "1";
 
+  const canonicalUrl = typeof res.locals.canonicalUrl === "string"
+    ? res.locals.canonicalUrl
+    : "";
+  const canonicalOrigin = canonicalUrl ? new URL(canonicalUrl).origin : "";
+  const listingUrl = canonicalUrl || `${canonicalOrigin}/category/${routeCategorySlug}/${listing.slug}`;
+  const photoUrl = photos[0]
+    ? `${canonicalOrigin}/media/${photos[0].id}/full`
+    : "";
+  const breadcrumbItems = [
+    { name: messages.brand.name, item: canonicalOrigin || "/" },
+    { name: parent?.nameRu ?? category.nameRu, item: `${canonicalOrigin}/category/${routeCategorySlug}` },
+    ...(parent ? [{ name: category.nameRu, item: `${canonicalOrigin}/category/${routeCategorySlug}/${category.slug}` }] : []),
+    { name: listing.title, item: listingUrl },
+  ];
+  const structuredData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Product",
+      name: listing.title,
+      description: listing.description.slice(0, 5000),
+      ...(photoUrl ? { image: [photoUrl] } : {}),
+      category: category.nameRu,
+      offers: {
+        "@type": "Offer",
+        url: listingUrl,
+        priceCurrency: listing.currency,
+        ...(listing.price === null ? {} : { price: listing.price }),
+        availability: "https://schema.org/InStock",
+        itemCondition: listing.condition === "new"
+          ? "https://schema.org/NewCondition"
+          : "https://schema.org/UsedCondition",
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: breadcrumbItems.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.name,
+        item: item.item,
+      })),
+    },
+  ];
   await renderPage(res, "listing", {
     categories: footerCategories,
     listing,
@@ -504,6 +583,9 @@ async function renderListing(
     formatPrice,
     title: `${listing.title} | ${messages.brand.name}`,
     description: listing.description.slice(0, 180),
+    ogType: "product",
+    ogImage: photoUrl,
+    structuredData: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
   });
 }
 
@@ -521,12 +603,17 @@ router.get("/media/:photoId/:variant", async (req, res, next) => {
       objectKey: listingPhotos.objectKey,
       thumbnailKey: listingPhotos.thumbnailKey,
       status: boatListings.status,
+      expiresAt: boatListings.expiresAt,
     })
     .from(listingPhotos)
     .innerJoin(boatListings, eq(listingPhotos.listingId, boatListings.id))
     .where(eq(listingPhotos.id, photoId))
     .limit(1);
-  if (!row || row.status !== "active") {
+  if (
+    !row ||
+    row.status !== "active" ||
+    (row.expiresAt !== null && row.expiresAt.getTime() <= Date.now())
+  ) {
     res.sendStatus(404);
     return;
   }
@@ -557,7 +644,11 @@ router.post("/phone/:slug", async (req, res) => {
   const [listing] = await db
     .select({ contactPhone: boatListings.contactPhone })
     .from(boatListings)
-    .where(and(eq(boatListings.slug, req.params.slug), eq(boatListings.status, "active")))
+    .where(and(
+      eq(boatListings.slug, req.params.slug),
+      eq(boatListings.status, "active"),
+      or(isNull(boatListings.expiresAt), gte(boatListings.expiresAt, new Date())),
+    ))
     .limit(1);
   if (!listing) {
     res.sendStatus(404);
@@ -588,7 +679,11 @@ router.post("/listing/:slug/report", async (req, res) => {
       categoryId: boatListings.categoryId,
     })
     .from(boatListings)
-    .where(and(eq(boatListings.slug, req.params.slug), eq(boatListings.status, "active")))
+    .where(and(
+      eq(boatListings.slug, req.params.slug),
+      eq(boatListings.status, "active"),
+      or(isNull(boatListings.expiresAt), gte(boatListings.expiresAt, new Date())),
+    ))
     .limit(1);
   if (!listing) {
     res.sendStatus(404);
@@ -612,6 +707,20 @@ router.post("/listing/:slug/report", async (req, res) => {
     details: details || null,
   });
   const categoryPath = await getListingCategoryPath(listing.categoryId);
+  const siteConfig = await getSiteConfig();
+  if (smtpConfigured() && siteConfig.reportNotificationEmail) {
+    const listingUrl = `${siteConfig.siteUrl || `${req.protocol}://${req.get("host")}`}/category/${categoryPath}/${req.params.slug}`;
+    try {
+      await sendSiteEmail(
+        siteConfig.reportNotificationEmail,
+        "Новая жалоба на объявление",
+        `Получена жалоба (${reason}) на объявление.\n${listingUrl}\n\n${details}`,
+        `<p>Получена жалоба (${reason}) на объявление.</p><p><a href="${listingUrl}">Открыть объявление</a></p><p>${details.replace(/[&<>"']/g, "")}</p>`,
+      );
+    } catch {
+      req.log?.error("Report notification email could not be sent");
+    }
+  }
   res.redirect(303, `/category/${categoryPath}/${req.params.slug}?reported=1#report`);
 });
 
@@ -633,7 +742,10 @@ async function getFullActiveListing(slug: string) {
   const [listing] = await db
     .select()
     .from(boatListings)
-    .where(and(eq(boatListings.slug, slug), eq(boatListings.status, "active")))
+    .where(and(
+      eq(boatListings.slug, slug),
+      inArray(boatListings.status, ["active", "expired"]),
+    ))
     .limit(1);
   return listing;
 }
@@ -724,11 +836,13 @@ router.get("/listing/:slug/edit", async (req, res) => {
     getCategoryOptions(),
     getFooterCategories(),
   ]);
-  const countries = messages.submit.countries;
+  const config = await getSiteConfig();
+  const countries = config.countries;
   await renderPage(res, "edit", {
     categories: footerCategories,
     categoryOptions: categories,
     countries,
+    currencies: config.currencies,
     footerCategories,
     categoriesForFooter: footerCategories,
     listing,
@@ -772,6 +886,7 @@ router.post("/listing/:slug/edit", async (req, res) => {
       categories: footerCategories,
       categoryOptions: categories,
       countries: messages.submit.countries,
+      currencies: (await getSiteConfig()).currencies,
       listing,
       values: body,
       csrf: createCsrfToken(),
@@ -785,7 +900,7 @@ router.post("/listing/:slug/edit", async (req, res) => {
     .update(boatListings)
     .set({ ...validation.value, updatedAt: new Date() })
     .where(eq(boatListings.id, listing.id));
-  res.redirect(303, `/category/${(await getListingCategoryPath(listing.categoryId))}/${listing.slug}?updated=1`);
+  res.redirect(303, `/category/${(await getListingCategoryPath(validation.value.categoryId))}/${listing.slug}?updated=1`);
 });
 
 async function getListingCategoryPath(categoryId: number): Promise<string> {
@@ -816,7 +931,9 @@ router.post("/listing/:slug/renew", async (req, res) => {
   await db
     .update(boatListings)
     .set({
+      status: "active",
       expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+      reminderSentAt: null,
       updatedAt: new Date(),
     })
     .where(eq(boatListings.id, listing.id));

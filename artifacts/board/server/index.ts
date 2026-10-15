@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray } from "drizzle-orm";
+import { and, count, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
 import cookieParser from "cookie-parser";
 import express, { type Request, type Response } from "express";
 import pino from "pino";
@@ -6,6 +6,8 @@ import pinoHttp from "pino-http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { boatCategories, boatListings, db } from "@workspace/db";
+import adminRoutes from "./admin-routes";
+import { getSiteConfig } from "./site-config";
 import formRoutes from "./form-routes";
 import listingRoutes, {
   getCatalogPage,
@@ -14,6 +16,7 @@ import listingRoutes, {
 } from "./listing-routes";
 import { messages, t } from "./localization";
 import { renderPage } from "./view";
+import { runMaintenance } from "./maintenance";
 
 const rootDir = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const publicDir = path.join(rootDir, "public");
@@ -41,6 +44,33 @@ app.use(
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true, limit: "64kb" }));
 app.use(express.json({ limit: "32kb" }));
+app.use(async (req, res, next) => {
+  try {
+    const config = await getSiteConfig();
+    const origin = config.siteUrl || (() => {
+      try {
+        return new URL(`${req.protocol}://${req.get("host")}`).origin;
+      } catch {
+        return "";
+      }
+    })();
+    res.locals.siteOrigin = origin;
+    res.locals.canonicalUrl = origin && !req.path.startsWith("/admin")
+      ? new URL(req.path, `${origin}/`).toString()
+      : "";
+    const consent = req.cookies?.analytics_consent === "accepted";
+    res.locals.analyticsDecisionMade =
+      req.cookies?.analytics_consent === "accepted" ||
+      req.cookies?.analytics_consent === "rejected";
+    res.locals.analyticsEnabled = Boolean(config.yandexMetrikaId || config.googleAnalyticsId);
+    res.locals.analyticsAllowed = consent;
+    res.locals.yandexMetrikaId = config.yandexMetrikaId;
+    res.locals.googleAnalyticsId = config.googleAnalyticsId;
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 app.use("/assets", express.static(publicDir, { maxAge: "1h" }));
 
 type CategoryRow = typeof boatCategories.$inferSelect;
@@ -50,6 +80,7 @@ type CategoryView = CategoryRow & {
 };
 
 async function getCategoryTree(): Promise<CategoryView[]> {
+  const now = new Date();
   const [rows, listingCounts] = await Promise.all([
     db
       .select()
@@ -62,7 +93,10 @@ async function getCategoryTree(): Promise<CategoryView[]> {
         count: count(),
       })
       .from(boatListings)
-      .where(eq(boatListings.status, "active"))
+      .where(and(
+        eq(boatListings.status, "active"),
+        or(isNull(boatListings.expiresAt), gte(boatListings.expiresAt, now)),
+      ))
       .groupBy(boatListings.categoryId),
   ]);
 
@@ -170,6 +204,18 @@ async function renderCategory(
   const filterAction = parentSlug
     ? `/category/${parentSlug}/${category.slug}`
     : `/category/${category.slug}`;
+  const siteOrigin = typeof res.locals.siteOrigin === "string" ? res.locals.siteOrigin : "";
+  const categoryUrl = typeof res.locals.canonicalUrl === "string" ? res.locals.canonicalUrl : "";
+  const breadcrumbList = [
+    { name: messages.brand.name, item: siteOrigin || "/" },
+    ...(parentSlug ? [{ name: categories.find((item) => item.slug === parentSlug)?.nameRu ?? "", item: `${siteOrigin}/category/${parentSlug}` }] : []),
+    { name: category.nameRu, item: categoryUrl },
+  ].map((item, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    name: item.name,
+    item: item.item,
+  }));
   await renderPage(res, "category", {
     categories,
     category,
@@ -184,8 +230,13 @@ async function renderCategory(
       pageData.pageCount,
     ),
     title: `${category.nameRu} — ${t("category.titleSuffix")} | ${messages.brand.name}`,
-    description: t("category.description", { name: category.nameRu }),
+    description: category.descriptionRu?.slice(0, 180) || t("category.description", { name: category.nameRu }),
     formatPrice,
+    structuredData: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: breadcrumbList,
+    }).replace(/</g, "\\u003c"),
   });
 }
 
@@ -241,6 +292,89 @@ async function renderSearch(req: Request, res: Response): Promise<void> {
   });
 }
 
+function xmlEscape(value: string): string {
+  return value.replace(/[<>&"']/g, (character) => ({
+    "<": "&lt;",
+    ">": "&gt;",
+    "&": "&amp;",
+    "\"": "&quot;",
+    "'": "&apos;",
+  })[character]!);
+}
+
+function requestOrigin(req: Request, configured = ""): string | null {
+  if (configured) return configured;
+  try {
+    return new URL(`${req.protocol}://${req.get("host")}`).origin;
+  } catch {
+    return null;
+  }
+}
+
+app.get("/robots.txt", async (req, res) => {
+  const origin = requestOrigin(req, String(res.locals.siteOrigin || ""));
+  res.type("text/plain").send([
+    "User-agent: *",
+    "Allow: /",
+    "Disallow: /admin",
+    ...(origin ? [`Sitemap: ${origin}/sitemap.xml`] : []),
+    "",
+  ].join("\n"));
+});
+
+app.get("/sitemap.xml", async (req, res) => {
+  const origin = requestOrigin(req, String(res.locals.siteOrigin || ""));
+  if (!origin) {
+    res.status(503).type("text/plain").send("Set the site's public URL in admin settings to generate the sitemap.");
+    return;
+  }
+  const now = new Date();
+  const [categoryRows, listings] = await Promise.all([
+    db.select().from(boatCategories).where(eq(boatCategories.isActive, true)),
+    db.select({
+      slug: boatListings.slug,
+      updatedAt: boatListings.updatedAt,
+      categoryId: boatListings.categoryId,
+      categorySlug: boatCategories.slug,
+      parentId: boatCategories.parentId,
+    })
+      .from(boatListings)
+      .innerJoin(boatCategories, eq(boatListings.categoryId, boatCategories.id))
+      .where(and(
+        eq(boatListings.status, "active"),
+        or(isNull(boatListings.expiresAt), gte(boatListings.expiresAt, now)),
+        eq(boatCategories.isActive, true),
+      )),
+  ]);
+  const categoryById = new Map(categoryRows.map((row) => [row.id, row]));
+  const entries: Array<{ path: string; updatedAt?: Date }> = [
+    { path: "/" },
+    ...categoryRows.map((category) => ({
+      path: category.parentId
+        ? `/category/${categoryById.get(category.parentId)?.slug ?? category.slug}/${category.slug}`
+        : `/category/${category.slug}`,
+      updatedAt: category.updatedAt,
+    })),
+    ...listings.flatMap((listing) => {
+      if (!listing.slug) return [];
+      const category = categoryById.get(listing.categoryId);
+      if (!category) return [];
+      const parentSlug = category.parentId
+        ? categoryById.get(category.parentId)?.slug
+        : undefined;
+      return [{
+        path: `/category/${parentSlug ?? category.slug}/${listing.slug}`,
+        updatedAt: listing.updatedAt,
+      }];
+    }),
+  ];
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${entries.map((entry) =>
+    `<url><loc>${xmlEscape(new URL(entry.path, `${origin}/`).toString())}</loc>${entry.updatedAt ? `<lastmod>${entry.updatedAt.toISOString()}</lastmod>` : ""}</url>`,
+  ).join("")}</urlset>`;
+  res.type("application/xml").set("Cache-Control", "public, max-age=300").send(xml);
+});
+
+app.use(adminRoutes);
 app.use(formRoutes);
 app.use(listingRoutes);
 app.get("/", renderHome);
@@ -298,4 +432,13 @@ if (!Number.isInteger(port) || port < 1) {
 
 app.listen(port, () => {
   logger.info({ port }, "SSR site listening");
+  void runMaintenance(logger).catch(() => {
+    logger.error("Startup maintenance run failed");
+  });
+  const maintenanceTimer = setInterval(() => {
+    void runMaintenance(logger).catch(() => {
+      logger.error("Scheduled maintenance run failed");
+    });
+  }, 15 * 60 * 1000);
+  maintenanceTimer.unref();
 });
