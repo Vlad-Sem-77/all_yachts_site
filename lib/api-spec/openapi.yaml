@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: listings
+    description: Classified listings
 paths:
   /healthz:
     get:
@@ -24,6 +26,111 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /listings:
+    get:
+      operationId: listListings
+      tags: [listings]
+      summary: Search and browse listings
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: city
+          schema: { type: string }
+        - in: query
+          name: minPrice
+          schema: { type: number, minimum: 0 }
+        - in: query
+          name: maxPrice
+          schema: { type: number, minimum: 0 }
+        - in: query
+          name: sort
+          schema:
+            type: string
+            enum: [newest, price_asc, price_desc]
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 50, default: 24 }
+      responses:
+        "200":
+          description: Matching listings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListingPage"
+    post:
+      operationId: createListing
+      tags: [listings]
+      summary: Publish a listing
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListingInput"
+      responses:
+        "201":
+          description: The published listing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+        "400":
+          description: Invalid listing
+  /listings/featured:
+    get:
+      operationId: getFeaturedListings
+      tags: [listings]
+      summary: Get recent featured listings
+      responses:
+        "200":
+          description: Featured listings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Listing"
+  /listings/{id}:
+    get:
+      operationId: getListing
+      tags: [listings]
+      summary: Get a listing
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer, minimum: 1 }
+      responses:
+        "200":
+          description: Listing details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Listing"
+        "404":
+          description: Listing not found
+  /categories:
+    get:
+      operationId: listCategories
+      tags: [listings]
+      summary: List listing categories with counts
+      responses:
+        "200":
+          description: Categories and listing counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +140,48 @@ components:
           type: string
       required:
         - status
+    Listing:
+      type: object
+      required: [id, title, description, category, price, city, condition, contactName, createdAt]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        category: { type: string }
+        price: { type: number }
+        city: { type: string }
+        condition: { type: string, enum: [new, used] }
+        contactName: { type: string }
+        contactPhone: { type: ["string", "null"] }
+        imageUrl: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+    ListingInput:
+      type: object
+      required: [title, description, category, price, city, condition, contactName]
+      properties:
+        title: { type: string, minLength: 3, maxLength: 120 }
+        description: { type: string, minLength: 10, maxLength: 4000 }
+        category: { type: string, minLength: 1, maxLength: 60 }
+        price: { type: number, minimum: 0 }
+        city: { type: string, minLength: 1, maxLength: 100 }
+        condition: { type: string, enum: [new, used] }
+        contactName: { type: string, minLength: 1, maxLength: 100 }
+        contactPhone: { type: string, maxLength: 40 }
+        imageUrl: { type: string, format: uri }
+    ListingPage:
+      type: object
+      required: [items, total, page, limit]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Listing" }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+    Category:
+      type: object
+      required: [name, count]
+      properties:
+        name: { type: string }
+        count: { type: integer }
 

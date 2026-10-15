@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Доска объявлений"
+description = "Русскоязычная доска объявлений с каталогом предложений, поиском и фильтрами, просмотром подробностей и формой публикации."
+version = "1.0.0"
+id = "artifacts/board"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21663
+
+[services.development]
+run = "pnpm --filter @workspace/board run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/board", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/board/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21663"
+BASE_PATH = "/"
