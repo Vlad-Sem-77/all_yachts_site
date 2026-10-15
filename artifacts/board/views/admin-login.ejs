@@ -1,0 +1,24 @@
+<section class="admin-login">
+  <p class="eyebrow"><%= t("admin.eyebrow") %></p>
+  <h1><%= t("admin.loginTitle") %></h1>
+  <p class="admin-muted"><%= t("admin.loginDescription") %></p>
+  <% if (!adminConfigured) { %>
+    <div class="form-alert"><%= t("admin.credentialsMissing") %></div>
+  <% } %>
+  <% if (loginError) { %><div class="form-alert"><%= loginError %></div><% } %>
+  <% if (adminConfigured) { %>
+    <form class="listing-form admin-login-form" method="post" action="/admin/login">
+      <input type="hidden" name="_csrf" value="<%= csrf %>" />
+      <label class="form-field">
+        <span><%= t("admin.username") %></span>
+        <input name="username" autocomplete="username" required maxlength="120" />
+      </label>
+      <label class="form-field">
+        <span><%= t("admin.password") %></span>
+        <input name="password" type="password" autocomplete="current-password" required maxlength="256" />
+      </label>
+      <button class="primary-button" type="submit"><%= t("admin.login") %></button>
+    </form>
+  <% } %>
+  <a class="text-link" href="/"><%= t("nav.home") %></a>
+</section>

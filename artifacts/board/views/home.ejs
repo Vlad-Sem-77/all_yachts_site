@@ -3,14 +3,18 @@
     <p class="eyebrow"><%= t('home.eyebrow') %></p>
     <h1><%= t('home.headline') %></h1>
     <p class="hero-description"><%= t('home.subheadline') %></p>
+    <form class="home-search" action="/search" method="get" role="search">
+      <label class="visually-hidden" for="home-search"><%= t('search.query') %></label>
+      <input id="home-search" name="q" type="search" maxlength="100" placeholder="<%= t('search.placeholder') %>" />
+      <button class="primary-button" type="submit"><%= t('search.submit') %></button>
+    </form>
     <a class="primary-link" href="#categories"><%= t('nav.allCategories') %><span aria-hidden="true">→</span></a>
   </div>
   <div class="hero-illustration" aria-hidden="true">
-    <div class="sun"></div>
-    <div class="water-line water-line-one"></div>
-    <div class="water-line water-line-two"></div>
-    <div class="boat-shape"><span></span></div>
-    <div class="hero-coordinate">55°45′ N<br />37°37′ E</div>
+    <div class="hero-medallion">
+      <img src="/assets/emblem.png" alt="" />
+    </div>
+    <span class="hero-coordinate">Море начинается здесь</span>
   </div>
 </section>
 

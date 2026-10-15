@@ -1,0 +1,21 @@
+<section class="page-heading compact-heading">
+  <nav class="breadcrumbs" aria-label="<%= t('accessibility.breadcrumb') %>">
+    <a href="/"><%= t("nav.home") %></a><span aria-hidden="true">/</span>
+    <span aria-current="page"><%= t("search.title") %></span>
+  </nav>
+  <p class="eyebrow"><%= t("search.eyebrow") %></p>
+  <h1><%= t("search.title") %></h1>
+  <p><%= t("search.description") %></p>
+</section>
+
+<section class="content-section catalog-section">
+  <div class="section-heading">
+    <div>
+      <p class="eyebrow"><%= t("search.results") %></p>
+      <h2><%= t("search.found", { count: total }) %></h2>
+    </div>
+  </div>
+  <%- include("_catalog-filters", { filters, filterAction }) %>
+  <%- include("_catalog-results", { listings, formatPrice, emptyMessage: t("search.emptyDescription"), emptyTitle: t("search.emptyTitle") }) %>
+  <%- include("_pagination", { pagination }) %>
+</section>

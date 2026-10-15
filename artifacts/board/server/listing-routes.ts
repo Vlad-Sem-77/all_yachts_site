@@ -1,15 +1,20 @@
 import bcrypt from "bcryptjs";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
   gte,
+  ilike,
   inArray,
   isNull,
+  lte,
+  or,
   sql,
 } from "drizzle-orm";
 import { Router, type NextFunction, type Request, type Response } from "express";
+import type { SQL } from "drizzle-orm";
 import {
   boatCategories,
   boatListings,
@@ -74,6 +79,135 @@ type SafeListingCard = {
   thumbnailUrl: string | null;
 };
 
+type ListingCardRow = Omit<SafeListingCard, "categoryPath" | "thumbnailUrl"> & {
+  categoryId: number;
+};
+
+export type CatalogFilters = {
+  q: string;
+  minPrice: string;
+  maxPrice: string;
+  currency: string;
+  minYear: string;
+  maxYear: string;
+  minLength: string;
+  maxLength: string;
+  country: string;
+  city: string;
+  condition: string;
+  transaction: string;
+  sort: "newest" | "price-asc" | "price-desc";
+  page: number;
+};
+
+const CATALOG_PAGE_SIZE = 20;
+const CATALOG_CURRENCIES = new Set(["RUB", "USD", "EUR", "GBP"]);
+
+function queryText(value: unknown, maxLength: number): string {
+  if (typeof value !== "string") return "";
+  return value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, maxLength);
+}
+
+function queryNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  integer = false,
+): string {
+  const raw = queryText(value, 32);
+  if (!raw) return "";
+  const parsed = Number(raw);
+  if (
+    !Number.isFinite(parsed) ||
+    parsed < min ||
+    parsed > max ||
+    (integer && !Number.isInteger(parsed))
+  ) {
+    return "";
+  }
+  return String(parsed);
+}
+
+export function parseCatalogFilters(query: Request["query"]): CatalogFilters {
+  const requestedPage = Number(queryText(query.page, 12));
+  const sort = queryText(query.sort, 16);
+  const currency = queryText(query.currency, 3).toUpperCase();
+  const condition = queryText(query.condition, 8);
+  const transaction = queryText(query.transaction, 8);
+
+  return {
+    q: queryText(query.q, 100),
+    minPrice: queryNumber(query.minPrice, 0, 1_000_000_000_000),
+    maxPrice: queryNumber(query.maxPrice, 0, 1_000_000_000_000),
+    currency: CATALOG_CURRENCIES.has(currency) ? currency : "",
+    minYear: queryNumber(query.minYear, 1900, new Date().getFullYear() + 1, true),
+    maxYear: queryNumber(query.maxYear, 1900, new Date().getFullYear() + 1, true),
+    minLength: queryNumber(query.minLength, 0.1, 1000),
+    maxLength: queryNumber(query.maxLength, 0.1, 1000),
+    country: queryText(query.country, 100),
+    city: queryText(query.city, 100),
+    condition: condition === "new" || condition === "used" ? condition : "",
+    transaction:
+      transaction === "sale" || transaction === "rent" ? transaction : "",
+    sort:
+      sort === "price-asc" || sort === "price-desc" ? sort : "newest",
+    page:
+      Number.isInteger(requestedPage) && requestedPage > 0
+        ? Math.min(requestedPage, 1_000_000)
+        : 1,
+  };
+}
+
+function catalogConditions(
+  categoryIds: number[] | undefined,
+  filters: CatalogFilters,
+): SQL[] {
+  const conditions: SQL[] = [eq(boatListings.status, "active")];
+  if (categoryIds) conditions.push(inArray(boatListings.categoryId, categoryIds));
+
+  if (filters.q) {
+    const term = filters.q.replace(/[\\%_]/g, "\\$&");
+    const pattern = `%${term}%`;
+    conditions.push(
+      or(
+        ilike(boatListings.title, pattern),
+        ilike(boatListings.description, pattern),
+        ilike(boatListings.manufacturer, pattern),
+        ilike(boatListings.model, pattern),
+        ilike(boatListings.country, pattern),
+        ilike(boatListings.cityOrRegion, pattern),
+      )!,
+    );
+  }
+  if (filters.minPrice) conditions.push(gte(boatListings.price, Number(filters.minPrice)));
+  if (filters.maxPrice) conditions.push(lte(boatListings.price, Number(filters.maxPrice)));
+  if (filters.currency) conditions.push(eq(boatListings.currency, filters.currency));
+  if (filters.minYear) conditions.push(gte(boatListings.year, Number(filters.minYear)));
+  if (filters.maxYear) conditions.push(lte(boatListings.year, Number(filters.maxYear)));
+  if (filters.minLength) conditions.push(gte(boatListings.lengthM, Number(filters.minLength)));
+  if (filters.maxLength) conditions.push(lte(boatListings.lengthM, Number(filters.maxLength)));
+  if (filters.country) conditions.push(ilike(boatListings.country, `%${filters.country}%`));
+  if (filters.city) conditions.push(ilike(boatListings.cityOrRegion, `%${filters.city}%`));
+  if (filters.condition) conditions.push(eq(boatListings.condition, filters.condition));
+  if (filters.transaction) {
+    conditions.push(eq(boatListings.transactionType, filters.transaction));
+  }
+  return conditions;
+}
+
+function merchandisingOrder() {
+  return [
+    desc(boatListings.priority),
+    desc(
+      sql`CASE WHEN ${boatListings.isFeatured} = true AND (${boatListings.featuredUntil} IS NULL OR ${boatListings.featuredUntil} >= CURRENT_TIMESTAMP) THEN 1 ELSE 0 END`,
+    ),
+    desc(
+      sql`CASE WHEN ${boatListings.boostedAt} IS NULL THEN 0 ELSE 1 END`,
+    ),
+    desc(boatListings.boostedAt),
+  ];
+}
+
 async function getFooterCategories() {
   return db
     .select({
@@ -110,8 +244,14 @@ export async function getListingCards(
     })
     .from(boatListings)
     .where(and(...filters))
-    .orderBy(desc(boatListings.isFeatured), desc(boatListings.priority), desc(boatListings.createdAt))
+    .orderBy(...merchandisingOrder(), desc(boatListings.createdAt))
     .limit(limit);
+  return decorateListingCards(listings);
+}
+
+async function decorateListingCards(
+  listings: ListingCardRow[],
+): Promise<SafeListingCard[]> {
   if (!listings.length) return [];
 
   const categoryRows = await db
@@ -161,6 +301,56 @@ export async function getListingCards(
         : null,
     };
   });
+}
+
+export async function getCatalogPage(
+  categoryIds: number[] | undefined,
+  filters: CatalogFilters,
+) {
+  const conditions = catalogConditions(categoryIds, filters);
+  const where = and(...conditions);
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(boatListings)
+    .where(where);
+  const pageCount = Math.max(1, Math.ceil(total / CATALOG_PAGE_SIZE));
+  const page = Math.min(filters.page, pageCount);
+  const sortOrder =
+    filters.sort === "price-asc"
+      ? [
+          asc(sql`CASE WHEN ${boatListings.price} IS NULL THEN 1 ELSE 0 END`),
+          asc(boatListings.price),
+        ]
+      : filters.sort === "price-desc"
+        ? [
+            asc(sql`CASE WHEN ${boatListings.price} IS NULL THEN 1 ELSE 0 END`),
+            desc(boatListings.price),
+          ]
+        : [desc(boatListings.createdAt)];
+  const rows = await db
+    .select({
+      id: boatListings.id,
+      slug: boatListings.slug,
+      categoryId: boatListings.categoryId,
+      title: boatListings.title,
+      price: boatListings.price,
+      currency: boatListings.currency,
+      isNegotiable: boatListings.isNegotiable,
+      country: boatListings.country,
+      cityOrRegion: boatListings.cityOrRegion,
+    })
+    .from(boatListings)
+    .where(where)
+    .orderBy(...merchandisingOrder(), ...sortOrder, desc(boatListings.id))
+    .limit(CATALOG_PAGE_SIZE)
+    .offset((page - 1) * CATALOG_PAGE_SIZE);
+
+  return {
+    listings: await decorateListingCards(rows),
+    total,
+    page,
+    pageCount,
+  };
 }
 
 function formatPrice(

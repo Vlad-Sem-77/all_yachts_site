@@ -1,0 +1,84 @@
+<section class="page-heading compact-heading admin-heading">
+  <p class="eyebrow"><%= t("admin.eyebrow") %></p>
+  <h1><%= t("admin.listings") %></h1>
+  <%- include("_admin-nav") %>
+</section>
+<section class="content-section admin-content">
+  <% if (notice) { %><div class="notice-banner"><%= notice %></div><% } %>
+  <form class="admin-filter-form" method="get" action="/admin/listings">
+    <label class="form-field"><span><%= t("admin.search") %></span><input name="q" value="<%= filters.q %>" maxlength="100" /></label>
+    <label class="form-field">
+      <span><%= t("admin.status") %></span>
+      <select name="status">
+        <option value=""><%= t("admin.anyStatus") %></option>
+        <% ["active","hidden","expired","deleted"].forEach((value) => { %>
+          <option value="<%= value %>" <%= filters.status === value ? "selected" : "" %>><%= t(`admin.statusLabels.${value}`) %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label class="form-field">
+      <span><%= t("admin.category") %></span>
+      <select name="category">
+        <option value=""><%= t("admin.anyCategory") %></option>
+        <% categories.forEach((category) => { %>
+          <option value="<%= category.id %>" <%= String(filters.categoryId) === String(category.id) ? "selected" : "" %>><%= category.nameRu %></option>
+        <% }) %>
+      </select>
+    </label>
+    <button class="primary-button" type="submit"><%= t("admin.filter") %></button>
+  </form>
+  <p class="admin-results-count"><%= total %> <%= t("admin.records") %></p>
+  <% if (listings.length) { %>
+    <div class="admin-listing-list">
+      <% listings.forEach((listing) => { %>
+        <article class="admin-listing-card">
+          <% if (listing.thumbnailUrl) { %><img class="admin-listing-thumb" src="<%= listing.thumbnailUrl %>" alt="" loading="lazy" /><% } else { %><div class="admin-listing-thumb admin-no-thumb">—</div><% } %>
+          <div class="admin-listing-main">
+            <div class="admin-listing-topline">
+              <span class="admin-status admin-status-<%= listing.status %>"><%= t(`admin.statusLabels.${listing.status}`) %></span>
+              <% if (listing.isPinned) { %><span class="admin-badge"><%= t("admin.pinned") %></span><% } %>
+              <% if (listing.isFeatured) { %><span class="admin-badge"><%= t("admin.featured") %></span><% } %>
+              <% if (listing.boostedAt) { %><span class="admin-badge"><%= t("admin.boosted") %></span><% } %>
+            </div>
+            <h2>
+              <% if (listing.slug && listing.categoryPath) { %>
+                <a href="/category/<%= listing.categoryPath %>/<%= listing.slug %>" target="_blank" rel="noreferrer"><%= listing.title %></a>
+              <% } else { %><%= listing.title %><% } %>
+            </h2>
+            <p><%= listing.categoryName || t("admin.unknownCategory") %> · <%= listing.country %><%= t("listing.locationSeparator") %><%= listing.cityOrRegion %></p>
+            <p class="admin-listing-meta"><%= listing.price === null ? t("listing.negotiable") : `${listing.price} ${listing.currency}` %> · <%= t("admin.created") %> <%= new Date(listing.createdAt).toLocaleDateString("ru-RU") %><% if (listing.expiresAt) { %> · <%= t("admin.expires") %> <%= new Date(listing.expiresAt).toLocaleDateString("ru-RU") %><% } %></p>
+            <div class="admin-action-groups">
+              <form method="post" action="/admin/listings/<%= listing.id %>/action" class="admin-inline-actions">
+                <input type="hidden" name="_csrf" value="<%= csrf %>" />
+                <% if (listing.status === "active") { %><button class="secondary-button" name="action" value="hide"><%= t("admin.hide") %></button><% } %>
+                <% if (listing.status === "hidden" || listing.status === "expired") { %><button class="secondary-button" name="action" value="show"><%= t("admin.show") %></button><% } %>
+                <% if (listing.status !== "deleted") { %><button class="danger-button" name="action" value="delete" onclick="return confirm('<%= t("admin.confirmDelete") %>')"><%= t("admin.delete") %></button><% } %>
+              </form>
+              <form method="post" action="/admin/listings/<%= listing.id %>/action" class="admin-merch-form">
+                <input type="hidden" name="_csrf" value="<%= csrf %>" />
+                <label class="form-field"><span><%= t("admin.until") %></span><input type="date" name="until" required /></label>
+                <div class="admin-inline-actions">
+                  <% if (!listing.isPinned) { %><button class="secondary-button" name="action" value="pin"><%= t("admin.pin") %></button><% } else { %><button class="secondary-button" name="action" value="unpin"><%= t("admin.unpin") %></button><% } %>
+                  <% if (!listing.isFeatured) { %><button class="secondary-button" name="action" value="feature"><%= t("admin.feature") %></button><% } else { %><button class="secondary-button" name="action" value="unfeature"><%= t("admin.unfeature") %></button><% } %>
+                  <% if (!listing.boostedAt) { %><button class="secondary-button" name="action" value="boost"><%= t("admin.boost") %></button><% } else { %><button class="secondary-button" name="action" value="unboost"><%= t("admin.unboost") %></button><% } %>
+                </div>
+              </form>
+              <form method="post" action="/admin/listings/<%= listing.id %>/action" class="admin-priority-form">
+                <input type="hidden" name="_csrf" value="<%= csrf %>" />
+                <label class="form-field"><span><%= t("admin.priority") %></span><input type="number" min="-1000" max="1000" name="priority" value="<%= listing.priority %>" /></label>
+                <button class="secondary-button" name="action" value="priority"><%= t("admin.savePriority") %></button>
+              </form>
+            </div>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+    <% if (pageCount > 1) { %>
+      <nav class="catalog-pagination" aria-label="<%= t('search.pagination') %>">
+        <% if (page > 1) { %><a class="pagination-step" href="/admin/listings?<%= new URLSearchParams({q: filters.q, status: filters.status, category: String(filters.categoryId || ""), page: String(page - 1)}) %>">← <%= t("search.previous") %></a><% } %>
+        <span><%= t("search.pageOf", { page, total: pageCount }) %></span>
+        <% if (page < pageCount) { %><a class="pagination-step" href="/admin/listings?<%= new URLSearchParams({q: filters.q, status: filters.status, category: String(filters.categoryId || ""), page: String(page + 1)}) %>"><%= t("search.next") %> →</a><% } %>
+      </nav>
+    <% } %>
+  <% } else { %><div class="empty-state"><h3><%= t("admin.emptyListings") %></h3></div><% } %>
+</section>

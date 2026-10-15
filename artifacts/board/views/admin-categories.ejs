@@ -1,0 +1,42 @@
+<section class="page-heading compact-heading admin-heading">
+  <p class="eyebrow"><%= t("admin.eyebrow") %></p>
+  <h1><%= t("admin.categories") %></h1>
+  <%- include("_admin-nav") %>
+</section>
+<section class="content-section admin-content">
+  <% if (notice) { %><div class="notice-banner"><%= notice %></div><% } %>
+  <div class="admin-category-list">
+    <% categoryRows.forEach((category) => { %>
+      <form class="admin-category-card" method="post" action="/admin/categories/<%= category.id %>/update">
+        <input type="hidden" name="_csrf" value="<%= csrf %>" />
+        <div class="admin-category-title">
+          <strong><%= category.nameRu %></strong>
+          <code><%= category.slug %></code>
+          <% if (category.parentName) { %><span><%= t("admin.parentCategory") %>: <%= category.parentName %></span><% } %>
+        </div>
+        <label class="form-field"><span><%= t("admin.categoryName") %></span><input name="nameRu" maxlength="100" required value="<%= category.nameRu %>" /></label>
+        <label class="form-field"><span><%= t("admin.categoryDescription") %></span><textarea name="descriptionRu" rows="3" maxlength="5000"><%= category.descriptionRu || "" %></textarea></label>
+        <label class="form-field"><span><%= t("admin.sortOrder") %></span><input type="number" name="sortOrder" min="-9999" max="9999" value="<%= category.sortOrder %>" /></label>
+        <label class="checkbox-field"><span><input type="checkbox" name="isActive" <%= category.isActive ? "checked" : "" %> /><%= t("admin.categoryActive") %></span></label>
+        <button class="secondary-button" type="submit"><%= t("admin.saveCategory") %></button>
+      </form>
+    <% }) %>
+  </div>
+
+  <form class="admin-panel admin-category-create" method="post" action="/admin/categories/create">
+    <div class="section-heading"><div><p class="eyebrow"><%= t("admin.categories") %></p><h2><%= t("admin.createCategory") %></h2></div></div>
+    <div class="form-grid form-grid-two">
+      <label class="form-field"><span><%= t("admin.categorySlug") %></span><input name="slug" pattern="[a-z0-9]+(-[a-z0-9]+)*" maxlength="100" required /></label>
+      <label class="form-field"><span><%= t("admin.categoryName") %></span><input name="nameRu" maxlength="100" required /></label>
+      <label class="form-field"><span><%= t("admin.parentCategory") %></span>
+        <select name="parentId"><option value=""><%= t("admin.rootCategory") %></option>
+          <% rootCategories.forEach((category) => { %><option value="<%= category.id %>"><%= category.nameRu %></option><% }) %>
+        </select>
+      </label>
+      <label class="form-field"><span><%= t("admin.sortOrder") %></span><input type="number" name="sortOrder" min="-9999" max="9999" value="0" /></label>
+    </div>
+    <label class="form-field"><span><%= t("admin.categoryDescription") %></span><textarea name="descriptionRu" rows="3" maxlength="5000"></textarea></label>
+    <label class="checkbox-field"><span><input type="checkbox" name="isActive" checked /><%= t("admin.categoryActive") %></span></label>
+    <button class="primary-button" type="submit"><%= t("admin.createCategory") %></button>
+  </form>
+</section>

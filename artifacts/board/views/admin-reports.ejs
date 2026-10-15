@@ -1,0 +1,41 @@
+<section class="page-heading compact-heading admin-heading">
+  <p class="eyebrow"><%= t("admin.eyebrow") %></p>
+  <h1><%= t("admin.reports") %></h1>
+  <%- include("_admin-nav") %>
+</section>
+<section class="content-section admin-content">
+  <div class="admin-tabs">
+    <% ["new","reviewed","dismissed"].forEach((status) => { %>
+      <a class="<%= reportStatus === status ? 'is-active' : '' %>" href="/admin/reports?status=<%= status %>"><%= t(`admin.reportStatuses.${status}`) %></a>
+    <% }) %>
+  </div>
+  <% if (reports.length) { %>
+    <div class="admin-report-list">
+      <% reports.forEach((report) => { %>
+        <article class="admin-panel">
+          <div class="admin-listing-topline">
+            <span class="admin-status admin-status-<%= report.status %>"><%= t(`admin.reportStatuses.${report.status}`) %></span>
+            <time><%= new Date(report.createdAt).toLocaleString("ru-RU") %></time>
+          </div>
+          <h2>
+            <% if (report.listingSlug) { %><a href="/admin/listings?status=<%= report.listingStatus %>"><%= report.listingTitle %></a><% } else { %><%= report.listingTitle %><% } %>
+          </h2>
+          <p><strong><%= t("admin.reportReason") %>:</strong> <%= t(`detail.reportReasons.${report.reason}`) %></p>
+          <% if (report.details) { %><p class="admin-report-details"><%= report.details %></p><% } %>
+          <% if (report.status === "new") { %>
+            <div class="admin-inline-actions">
+              <form method="post" action="/admin/reports/<%= report.id %>/action">
+                <input type="hidden" name="_csrf" value="<%= csrf %>" />
+                <button class="danger-button" name="action" value="hide"><%= t("admin.hideAndReview") %></button>
+              </form>
+              <form method="post" action="/admin/reports/<%= report.id %>/action">
+                <input type="hidden" name="_csrf" value="<%= csrf %>" />
+                <button class="secondary-button" name="action" value="dismiss"><%= t("admin.dismissReport") %></button>
+              </form>
+            </div>
+          <% } %>
+        </article>
+      <% }) %>
+    </div>
+  <% } else { %><div class="empty-state"><h3><%= t("admin.emptyReports") %></h3></div><% } %>
+</section>

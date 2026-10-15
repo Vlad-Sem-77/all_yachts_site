@@ -1,0 +1,20 @@
+<% if (pagination) { %>
+  <nav class="catalog-pagination" aria-label="<%= t('search.pagination') %>">
+    <% if (pagination.previousHref) { %>
+      <a class="pagination-step" href="<%= pagination.previousHref %>"><%= t("search.previous") %></a>
+    <% } %>
+    <div class="pagination-pages">
+      <% pagination.pages.forEach(({ page, href }) => { %>
+        <% if (page === pagination.currentPage) { %>
+          <span class="pagination-current" aria-current="page"><%= page %></span>
+        <% } else { %>
+          <a href="<%= href %>"><%= page %></a>
+        <% } %>
+      <% }) %>
+    </div>
+    <span class="pagination-status"><%= t("search.pageOf", { page: pagination.currentPage, total: pagination.pageCount }) %></span>
+    <% if (pagination.nextHref) { %>
+      <a class="pagination-step" href="<%= pagination.nextHref %>"><%= t("search.next") %></a>
+    <% } %>
+  </nav>
+<% } %>

@@ -1,0 +1,77 @@
+<form class="catalog-filters" action="<%= filterAction %>" method="get">
+  <div class="catalog-filter-grid">
+    <label class="form-field catalog-filter-query">
+      <span><%= t("search.query") %></span>
+      <input name="q" type="search" maxlength="100" value="<%= filters.q %>" placeholder="<%= t("search.placeholder") %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.priceFrom") %></span>
+      <input name="minPrice" type="number" min="0" step="1" value="<%= filters.minPrice %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.priceTo") %></span>
+      <input name="maxPrice" type="number" min="0" step="1" value="<%= filters.maxPrice %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.currency") %></span>
+      <select name="currency">
+        <option value=""><%= t("search.anyCurrency") %></option>
+        <% [["RUB","₽"],["USD","$"],["EUR","€"],["GBP","£"]].forEach(([code,symbol]) => { %>
+          <option value="<%= code %>" <%= filters.currency === code ? "selected" : "" %>><%= code %> · <%= symbol %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label class="form-field">
+      <span><%= t("search.yearFrom") %></span>
+      <input name="minYear" type="number" min="1900" max="<%= new Date().getFullYear() + 1 %>" step="1" value="<%= filters.minYear %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.yearTo") %></span>
+      <input name="maxYear" type="number" min="1900" max="<%= new Date().getFullYear() + 1 %>" step="1" value="<%= filters.maxYear %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.lengthFrom") %></span>
+      <input name="minLength" type="number" min="0.1" max="1000" step="0.1" value="<%= filters.minLength %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.lengthTo") %></span>
+      <input name="maxLength" type="number" min="0.1" max="1000" step="0.1" value="<%= filters.maxLength %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.country") %></span>
+      <input name="country" type="search" maxlength="100" value="<%= filters.country %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.city") %></span>
+      <input name="city" type="search" maxlength="100" value="<%= filters.city %>" />
+    </label>
+    <label class="form-field">
+      <span><%= t("search.condition") %></span>
+      <select name="condition">
+        <option value=""><%= t("search.anyCondition") %></option>
+        <option value="new" <%= filters.condition === "new" ? "selected" : "" %>><%= t("submit.new") %></option>
+        <option value="used" <%= filters.condition === "used" ? "selected" : "" %>><%= t("submit.used") %></option>
+      </select>
+    </label>
+    <label class="form-field">
+      <span><%= t("search.transaction") %></span>
+      <select name="transaction">
+        <option value=""><%= t("search.anyTransaction") %></option>
+        <option value="sale" <%= filters.transaction === "sale" ? "selected" : "" %>><%= t("submit.sale") %></option>
+        <option value="rent" <%= filters.transaction === "rent" ? "selected" : "" %>><%= t("submit.rent") %></option>
+      </select>
+    </label>
+    <label class="form-field">
+      <span><%= t("search.sort") %></span>
+      <select name="sort">
+        <option value="newest" <%= filters.sort === "newest" ? "selected" : "" %>><%= t("search.sortNewest") %></option>
+        <option value="price-asc" <%= filters.sort === "price-asc" ? "selected" : "" %>><%= t("search.sortCheapest") %></option>
+        <option value="price-desc" <%= filters.sort === "price-desc" ? "selected" : "" %>><%= t("search.sortExpensive") %></option>
+      </select>
+    </label>
+  </div>
+  <div class="catalog-filter-actions">
+    <button class="primary-button" type="submit"><%= t("search.apply") %></button>
+    <a class="secondary-button" href="<%= filterAction %>"><%= t("search.clear") %></a>
+  </div>
+</form>

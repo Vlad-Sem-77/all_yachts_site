@@ -7,7 +7,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { boatCategories, boatListings, db } from "@workspace/db";
 import formRoutes from "./form-routes";
-import listingRoutes, { getListingCards } from "./listing-routes";
+import listingRoutes, {
+  getCatalogPage,
+  getListingCards,
+  parseCatalogFilters,
+} from "./listing-routes";
 import { messages, t } from "./localization";
 import { renderPage } from "./view";
 
@@ -161,25 +165,78 @@ async function renderCategory(
     category.id,
     ...category.children.map((child) => child.id),
   ];
-  const [listings, [totalRow]] = await Promise.all([
-    getListingCards(categoryIds, undefined, 20),
-    db
-      .select({ total: count() })
-      .from(boatListings)
-      .where(
-        and(
-          inArray(boatListings.categoryId, categoryIds),
-          eq(boatListings.status, "active"),
-        ),
-      ),
-  ]);
+  const filters = parseCatalogFilters(req.query);
+  const pageData = await getCatalogPage(categoryIds, filters);
+  const filterAction = parentSlug
+    ? `/category/${parentSlug}/${category.slug}`
+    : `/category/${category.slug}`;
   await renderPage(res, "category", {
     categories,
     category,
-    listings,
-    total: totalRow.total,
+    listings: pageData.listings,
+    total: pageData.total,
+    filters,
+    filterAction,
+    pagination: makePagination(
+      filters,
+      filterAction,
+      pageData.page,
+      pageData.pageCount,
+    ),
     title: `${category.nameRu} — ${t("category.titleSuffix")} | ${messages.brand.name}`,
     description: t("category.description", { name: category.nameRu }),
+    formatPrice,
+  });
+}
+
+function makePagination(
+  filters: ReturnType<typeof parseCatalogFilters>,
+  basePath: string,
+  currentPage: number,
+  pageCount: number,
+) {
+  if (pageCount <= 1) return null;
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (key === "page" || value === "") continue;
+    params.set(key, String(value));
+  }
+  const href = (page: number) => {
+    const pageParams = new URLSearchParams(params);
+    pageParams.set("page", String(page));
+    return `${basePath}?${pageParams.toString()}`;
+  };
+  const start = Math.max(1, currentPage - 2);
+  const end = Math.min(pageCount, currentPage + 2);
+  return {
+    currentPage,
+    pageCount,
+    previousHref: currentPage > 1 ? href(currentPage - 1) : null,
+    nextHref: currentPage < pageCount ? href(currentPage + 1) : null,
+    pages: Array.from({ length: end - start + 1 }, (_, index) => {
+      const page = start + index;
+      return { page, href: href(page) };
+    }),
+  };
+}
+
+async function renderSearch(req: Request, res: Response): Promise<void> {
+  const categories = await getCategoryTree();
+  const categoryIds = categories.flatMap((category) => [
+    category.id,
+    ...category.children.map((child) => child.id),
+  ]);
+  const filters = parseCatalogFilters(req.query);
+  const pageData = await getCatalogPage(categoryIds, filters);
+  await renderPage(res, "search", {
+    categories,
+    listings: pageData.listings,
+    total: pageData.total,
+    filters,
+    filterAction: "/search",
+    pagination: makePagination(filters, "/search", pageData.page, pageData.pageCount),
+    title: `${t("search.title")} | ${messages.brand.name}`,
+    description: t("search.description"),
     formatPrice,
   });
 }
@@ -187,6 +244,7 @@ async function renderCategory(
 app.use(formRoutes);
 app.use(listingRoutes);
 app.get("/", renderHome);
+app.get("/search", renderSearch);
 app.get("/category/:parentSlug/:slug", (req, res) =>
   renderCategory(req, res, req.params.parentSlug),
 );

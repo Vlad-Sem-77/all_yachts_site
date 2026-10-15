@@ -1,0 +1,50 @@
+<section class="page-heading compact-heading admin-heading">
+  <p class="eyebrow"><%= t("admin.eyebrow") %></p>
+  <h1><%= t("admin.settings") %></h1>
+  <%- include("_admin-nav") %>
+</section>
+<section class="content-section admin-content">
+  <% if (settingsSaved) { %><div class="notice-banner"><%= t("admin.settingsSaved") %></div><% } %>
+  <% if (settingsError) { %><div class="form-alert"><%= settingsError %></div><% } %>
+  <form class="listing-form admin-settings-form" method="post" action="/admin/settings">
+    <input type="hidden" name="_csrf" value="<%= csrf %>" />
+    <fieldset class="form-fieldset">
+      <legend><%= t("admin.seoSettings") %></legend>
+      <label class="form-field"><span><%= t("admin.siteUrl") %></span><input type="url" name="siteUrl" maxlength="500" placeholder="https://example.com" value="<%= config.siteUrl %>" /><small><%= t("admin.siteUrlHint") %></small></label>
+    </fieldset>
+    <fieldset class="form-fieldset">
+      <legend><%= t("admin.analyticsSettings") %></legend>
+      <div class="form-grid form-grid-two">
+        <label class="form-field"><span><%= t("admin.yandexId") %></span><input name="yandexMetrikaId" maxlength="20" inputmode="numeric" value="<%= config.yandexMetrikaId %>" /></label>
+        <label class="form-field"><span><%= t("admin.googleId") %></span><input name="googleAnalyticsId" maxlength="30" value="<%= config.googleAnalyticsId %>" /></label>
+      </div>
+      <small class="field-hint"><%= t("admin.analyticsConsentHint") %></small>
+    </fieldset>
+    <fieldset class="form-fieldset">
+      <legend><%= t("admin.notifications") %></legend>
+      <div class="form-grid form-grid-two">
+        <label class="form-field"><span><%= t("admin.reportNotificationEmail") %></span><input type="email" name="reportNotificationEmail" maxlength="254" value="<%= config.reportNotificationEmail %>" /></label>
+        <label class="form-field"><span><%= t("admin.newListingNotificationEmail") %></span><input type="email" name="newListingNotificationEmail" maxlength="254" value="<%= config.newListingNotificationEmail %>" /></label>
+      </div>
+      <small class="field-hint"><%= t("admin.smtpRequiredHint") %></small>
+    </fieldset>
+    <fieldset class="form-fieldset">
+      <legend><%= t("admin.currencies") %></legend>
+      <label class="form-field"><span><%= t("admin.currencyLines") %></span><textarea name="currencies" rows="6" maxlength="5000" required><%= currenciesText %></textarea><small><%= t("admin.currencyLinesHint") %></small></label>
+    </fieldset>
+    <fieldset class="form-fieldset">
+      <legend><%= t("admin.countries") %></legend>
+      <label class="form-field"><span><%= t("admin.countryLines") %></span><textarea name="countries" rows="9" maxlength="30000" required><%= countriesText %></textarea><small><%= t("admin.countryLinesHint") %></small></label>
+    </fieldset>
+    <fieldset class="form-fieldset">
+      <legend><%= t("admin.rules") %></legend>
+      <label class="form-field"><span><%= t("admin.rulesBody") %></span><textarea name="rulesBody" rows="6" maxlength="5000" required><%= config.rulesBody %></textarea></label>
+    </fieldset>
+    <button class="primary-button" type="submit"><%= t("admin.saveSettings") %></button>
+  </form>
+  <section class="admin-panel admin-export-panel">
+    <h2><%= t("admin.databaseExport") %></h2>
+    <p><%= t("admin.databaseExportHint") %></p>
+    <a class="primary-button" href="/admin/export"><%= t("admin.downloadExport") %></a>
+  </section>
+</section>

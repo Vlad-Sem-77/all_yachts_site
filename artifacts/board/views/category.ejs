@@ -33,25 +33,7 @@
     <div><p class="eyebrow"><%= t('category.listingsHeading') %></p><h2><%= t('category.listingsHeading') %></h2></div>
     <span class="listing-total"><%= total %> <%= t('category.listingsCount', { count: total }) %></span>
   </div>
-  <% if (listings.length) { %>
-    <div class="listing-grid">
-      <% listings.forEach((listing) => { %>
-        <a class="listing-card" href="/category/<%= listing.categoryPath %>/<%= listing.slug %>">
-          <div class="listing-card-image">
-            <% if (listing.thumbnailUrl) { %><img src="<%= listing.thumbnailUrl %>" alt="" loading="lazy" /><% } else { %><span><%= t('listing.photoComingSoon') %></span><% } %>
-          </div>
-          <div class="listing-card-body">
-            <h3><%= listing.title %></h3>
-            <p class="listing-location"><%= listing.country %><%= t('listing.locationSeparator') %><%= listing.cityOrRegion %></p>
-            <strong class="listing-price"><%= formatPrice(listing.price, listing.currency, listing.isNegotiable, t) %></strong>
-          </div>
-        </a>
-      <% }) %>
-    </div>
-  <% } else { %>
-    <div class="empty-state">
-      <span class="empty-mark" aria-hidden="true">⌁</span>
-      <div><h3><%= t('category.emptyTitle') %></h3><p><%= t('category.emptyDescription') %></p></div>
-    </div>
-  <% } %>
+  <%- include("_catalog-filters", { filters, filterAction }) %>
+  <%- include("_catalog-results", { listings, formatPrice, emptyMessage: t('category.emptyDescription'), emptyTitle: t('category.emptyTitle') }) %>
+  <%- include("_pagination", { pagination }) %>
 </section>

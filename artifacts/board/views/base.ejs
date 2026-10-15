@@ -10,14 +10,14 @@
     <title><%= title || t('home.title') %></title>
     <link rel="stylesheet" href="/assets/site.css" />
     <link rel="stylesheet" href="/assets/listing.css" />
-    <link rel="icon" href="/assets/anchor.svg" type="image/svg+xml" />
+    <link rel="icon" href="/assets/emblem.png" type="image/png" />
   </head>
   <body>
     <div class="site-shell">
       <header class="site-header">
         <div class="header-inner">
           <a class="brand" href="/" aria-label="<%= t('nav.home') %>">
-            <span class="brand-mark" aria-hidden="true">Л</span>
+            <img class="brand-mark" src="/assets/emblem.png" alt="" />
             <span class="brand-name"><%= t('brand.name') %><small><%= t('brand.tagline') %></small></span>
           </a>
           <nav class="main-nav" aria-label="<%= t('accessibility.mainNavigation') %>">
