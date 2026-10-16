@@ -82,6 +82,18 @@
         <button class="text-button" type="button" data-copy-link><%= t("listing.copyLink") %></button>
         <a class="text-button" href="/listing/<%= listing.slug %>/manage"><%= t("detail.authorTools") %></a>
       </div>
+      <div class="listing-discussion">
+        <p class="eyebrow">Обсуждение</p>
+        <p>У объявления есть своя ветка на форуме.</p>
+        <% if (forumUser) { %>
+          <button class="primary-button" type="button" data-discuss-listing
+            data-endpoint="/api/listings/<%= listing.id %>/discuss"
+            data-error="Не удалось открыть обсуждение. Попробуйте ещё раз.">Обсудить объявление <span aria-hidden="true">↗</span></button>
+        <% } else { %>
+          <a class="primary-button" href="/sign-in?next=<%= encodeURIComponent(currentListingPath) %>">Войти, чтобы обсудить</a>
+        <% } %>
+        <p class="forum-action-message" data-discuss-message aria-live="polite"></p>
+      </div>
     </aside>
   </div>
 

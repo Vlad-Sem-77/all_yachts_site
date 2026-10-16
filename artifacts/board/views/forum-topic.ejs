@@ -1,0 +1,44 @@
+<section class="forum-page">
+  <nav class="breadcrumbs" aria-label="Навигация"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/forum">Форум</a><span aria-hidden="true">/</span><a href="/forum/<%= topic.sectionSlug %>"><%= topic.sectionTitle %></a><span aria-hidden="true">/</span><span aria-current="page"><%= topic.title %></span></nav>
+  <header class="forum-hero">
+    <p class="eyebrow"><%= topic.sectionTitle %></p><h1><%= topic.title %></h1>
+    <% if (listingUrl) { %><a class="forum-listing-link" href="<%= listingUrl %>">← К объявлению: <%= topic.listingTitle %></a><% } %>
+    <% if (topic.isLocked) { %><p class="forum-locked">Обсуждение закрыто модератором.</p><% } %>
+  </header>
+  <% if (error === "rate") { %><p class="forum-notice">Слишком часто. Подождите несколько секунд и отправьте сообщение ещё раз.</p><% } %>
+  <% if (error === "words") { %><p class="forum-notice">В этом разделе действует фильтр слов. Измените сообщение и попробуйте снова.</p><% } %>
+  <% if (reported) { %><p class="forum-notice">Жалоба отправлена модераторам.</p><% } %>
+  <div class="forum-post-list">
+    <% posts.forEach((post) => { %>
+      <article class="forum-post <%= post.status !== "visible" ? "is-hidden" : "" %>" id="post-<%= post.id %>">
+        <header><strong><%= post.author %></strong><span><%= post.authorRole === "moderator" || post.authorRole === "admin" ? "модератор" : "участник" %></span><time><%= new Date(post.createdAt).toLocaleString("ru-RU") %></time></header>
+        <div class="forum-post-body"><%= post.status === "visible" ? post.body : post.status === "hidden" ? "Сообщение скрыто модератором." : "Сообщение удалено." %></div>
+        <div class="forum-post-actions">
+          <% if (forumUser && post.authorId !== forumUser.id && post.status === "visible") { %>
+            <details><summary>Пожаловаться</summary><form method="post" action="/forum/posts/<%= post.id %>/report"><input type="hidden" name="_csrf" value="<%= csrf %>" /><select name="reason" aria-label="Причина жалобы"><% if (topic.kind === "flood") { %><option value="illegal">Незаконный контент</option><% } else { %><option value="spam">Спам</option><option value="harassment">Оскорбления</option><option value="illegal">Незаконный контент</option><option value="other">Другое</option><% } %></select><button type="submit" class="text-button">Отправить</button></form></details>
+          <% } %>
+          <% if (canModerate && post.status === "visible") { %>
+            <form method="post" action="/forum/moderation/reports/0"><input type="hidden" name="_csrf" value="<%= csrf %>" /><input type="hidden" name="postId" value="<%= post.id %>" /><button class="text-button" type="submit" formaction="/forum/moderation/posts/<%= post.id %>" name="action" value="hide">Скрыть сообщение</button><button class="text-button" type="submit" formaction="/forum/moderation/posts/<%= post.id %>" name="action" value="delete">Удалить</button></form>
+          <% } %>
+        </div>
+      </article>
+    <% }) %>
+  </div>
+  <% if (canModerate) { %>
+    <form class="forum-moderator-controls" method="post" action="/forum/moderation/topics/<%= topic.id %>">
+      <input type="hidden" name="_csrf" value="<%= csrf %>" />
+      <button class="secondary-button" name="action" value="<%= topic.isLocked ? "unlock" : "lock" %>"><%= topic.isLocked ? "Открыть тему" : "Закрыть тему" %></button>
+      <button class="secondary-button" name="action" value="<%= topic.isPinned ? "unpin" : "pin" %>"><%= topic.isPinned ? "Открепить" : "Закрепить" %></button>
+      <% if (forumUser) { %><label>Заблокировать автора в разделе<input type="number" min="1" name="banUserId" placeholder="ID пользователя" /><button class="text-button" formaction="/forum/moderation/bans" name="action" value="ban">На 7 дней</button></label><% } %>
+    </form>
+  <% } %>
+  <section class="forum-compose" id="post-new">
+    <h2>Ваш ответ</h2>
+    <% if (forumUser && !topic.isLocked) { %>
+      <form method="post" action="/forum/topic/<%= topic.id %>/posts" class="forum-form">
+        <input type="hidden" name="_csrf" value="<%= csrf %>" /><label><span class="sr-only">Сообщение</span><textarea name="body" rows="5" maxlength="6000" required></textarea></label>
+        <button class="primary-button" type="submit">Отправить ответ</button>
+      </form>
+    <% } else if (!forumUser) { %><a class="secondary-button" href="/sign-in?next=<%= encodeURIComponent(`/forum/topic/${topic.id}#post-new`) %>">Войти, чтобы ответить</a><% } else { %><p>Тема закрыта.</p><% } %>
+  </section>
+</section>

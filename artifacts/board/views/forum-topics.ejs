@@ -1,0 +1,33 @@
+<section class="forum-page">
+  <nav class="breadcrumbs" aria-label="Навигация"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/forum">Форум</a><span aria-hidden="true">/</span><span aria-current="page"><%= section.title %></span></nav>
+  <header class="forum-hero forum-hero-row">
+    <div><p class="eyebrow">Раздел форума</p><h1><%= section.title %></h1><p>Читайте открытые темы или войдите, чтобы создать новую.</p></div>
+    <% if (section.kind !== "listing") { %><a class="primary-button" href="/forum/<%= section.slug %>/new">Новая тема <span aria-hidden="true">＋</span></a><% } %>
+  </header>
+  <% if (topics.length) { %>
+    <div class="forum-topic-list">
+      <% topics.forEach((topic) => { %>
+        <a class="forum-topic-row" href="/forum/topic/<%= topic.id %>">
+          <span class="forum-topic-symbol" aria-hidden="true"><%= topic.isPinned ? "⌖" : topic.isLocked ? "▣" : "◌" %></span>
+          <span class="forum-topic-copy"><strong><%= topic.title %></strong><small><%= topic.author %> · обновлено <%= new Date(topic.updatedAt).toLocaleDateString("ru-RU") %></small></span>
+          <span class="forum-topic-count"><%= topic.postCount %> ответов</span>
+          <span class="forum-arrow" aria-hidden="true">↗</span>
+        </a>
+      <% }) %>
+    </div>
+  <% } else { %><div class="forum-empty"><span aria-hidden="true">◌</span><h2>Пока нет тем</h2><p>Станьте первым, кто начнёт обсуждение.</p></div><% } %>
+  <% if (error === "rate") { %><p class="forum-notice">Подождите несколько секунд перед следующей публикацией.</p><% } %>
+  <% if (section.kind !== "listing") { %>
+    <section class="forum-compose" id="new-topic">
+      <h2>Создать тему</h2>
+      <% if (forumUser) { %>
+        <form method="post" action="/forum/topics" class="forum-form">
+          <input type="hidden" name="_csrf" value="<%= csrf %>" /><input type="hidden" name="sectionId" value="<%= section.id %>" />
+          <label>Заголовок<input name="title" maxlength="160" required /></label>
+          <label>Сообщение<textarea name="body" rows="5" maxlength="6000" required></textarea></label>
+          <button class="primary-button" type="submit">Опубликовать тему</button>
+        </form>
+      <% } else { %><a class="secondary-button" href="/sign-in?next=<%= encodeURIComponent(`/forum/${section.slug}#new-topic`) %>">Войти, чтобы создать тему</a><% } %>
+    </section>
+  <% } %>
+</section>

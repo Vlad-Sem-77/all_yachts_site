@@ -1,0 +1,18 @@
+<section class="forum-page">
+  <nav class="breadcrumbs" aria-label="Навигация"><a href="/">Главная</a><span aria-hidden="true">/</span><span aria-current="page">Форум</span></nav>
+  <header class="forum-hero">
+    <p class="eyebrow">Сообщество «Слон»</p>
+    <h1>Форум лодочников</h1>
+    <p>Обсуждайте объявления, задавайте вопросы и делитесь опытом. Читать можно без аккаунта; для участия нужен вход.</p>
+  </header>
+  <div class="forum-section-list">
+    <% sections.forEach((section) => { %>
+      <a class="forum-section-card" href="/forum/<%= section.slug %>">
+        <span class="forum-section-icon" aria-hidden="true"><%= section.kind === "listing" ? "⌂" : section.kind === "flood" ? "≈" : "✦" %></span>
+        <span class="forum-section-copy"><strong><%= section.title %></strong><small><%= section.kind === "listing" ? "Обсуждение объявлений категории" : section.kind === "general" ? "Вопросы и советы по жизни на воде" : section.kind === "offtopic" ? "Разговоры на разные темы" : "Свободное общение" %></small></span>
+        <span class="forum-section-count"><%= section.topicCount %> тем</span>
+        <span class="forum-arrow" aria-hidden="true">↗</span>
+      </a>
+    <% }) %>
+  </div>
+</section>

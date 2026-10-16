@@ -34,6 +34,8 @@ export async function renderPage(
     cookieConsentText: t("cookieConsent.message"),
     cookieAcceptText: t("cookieConsent.accept"),
     cookieRejectText: t("cookieConsent.reject"),
+    forumUser: res.locals.forumUser ?? null,
+    canModerateForum: res.locals.canModerateForum ?? false,
     ...locals,
   };
   const body = await ejs.renderFile(path.join(viewsDir, `${page}.ejs`), shared);

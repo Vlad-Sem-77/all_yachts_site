@@ -38,6 +38,12 @@
           </a>
           <nav class="main-nav" aria-label="<%= t('accessibility.mainNavigation') %>">
             <a href="/categories"><%= t('nav.categories') %></a>
+            <a href="/forum">Форум</a>
+            <% if (forumUser) { %>
+              <a href="/sign-out">Аккаунт · <%= forumUser.displayName %></a>
+            <% } else { %>
+              <a href="/sign-in?next=%2Fforum">Войти</a>
+            <% } %>
             <a class="nav-submit" href="/submit"><%= t('nav.submit') %><span aria-hidden="true">＋</span></a>
           </nav>
         </div>
@@ -72,6 +78,7 @@
       </aside>
     <% } %>
     <script src="/assets/interaction.js" defer></script>
+    <script src="/assets/forum-interaction.js" defer></script>
     <% if (analyticsEnabled) { %><script src="/assets/cookie-consent.js" defer></script><% } %>
   </body>
 </html>

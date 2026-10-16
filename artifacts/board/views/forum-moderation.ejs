@@ -1,0 +1,19 @@
+<section class="forum-page">
+  <nav class="breadcrumbs" aria-label="Навигация"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/forum">Форум</a><span aria-hidden="true">/</span><span aria-current="page">Модерация</span></nav>
+  <header class="forum-hero"><p class="eyebrow">Инструменты сообщества</p><h1>Модерация форума</h1><p>Жалобы, скрытие сообщений и блокировка пользователей в разделах.</p></header>
+  <% if (reports.length) { %>
+    <div class="forum-report-list">
+      <% reports.forEach((report) => { %>
+        <article class="forum-report-card">
+          <div><p class="eyebrow"><%= report.sectionTitle %> · жалоба: <%= report.reason %></p><h2><a href="/forum/topic/<%= report.topicId %>#post-<%= report.postId %>"><%= report.topicTitle %></a></h2><p class="forum-report-body"><%= report.body %></p><small>Автор: <%= report.author %></small></div>
+          <form method="post" action="/forum/moderation/reports/<%= report.id %>"><input type="hidden" name="_csrf" value="<%= csrf %>" /><button class="secondary-button" name="action" value="dismiss">Отклонить</button><button class="secondary-button" name="action" value="hide">Скрыть</button><button class="text-button" name="action" value="delete">Удалить</button></form>
+        </article>
+      <% }) %>
+    </div>
+  <% } else { %><div class="forum-empty"><span aria-hidden="true">✓</span><h2>Новых жалоб нет</h2></div><% } %>
+  <% if (canManageUsers) { %>
+    <section class="forum-compose"><h2>Роли участников</h2>
+      <% users.forEach((member) => { %><form class="forum-user-row" method="post" action="/forum/moderation/users/<%= member.id %>/role"><input type="hidden" name="_csrf" value="<%= csrf %>" /><strong><%= member.displayName %> · <%= member.clerkUserId %></strong><select name="role"><option value="user" <%= member.role === "user" ? "selected" : "" %>>Пользователь</option><option value="moderator" <%= member.role === "moderator" ? "selected" : "" %>>Модератор</option><option value="admin" <%= member.role === "admin" ? "selected" : "" %>>Администратор форума</option></select><button class="text-button">Сохранить</button></form><% }) %>
+    </section>
+  <% } %>
+</section>
