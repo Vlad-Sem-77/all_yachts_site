@@ -8,7 +8,11 @@
       <input id="home-search" name="q" type="search" maxlength="100" placeholder="<%= t('search.placeholder') %>" />
       <button class="primary-button" type="submit"><%= t('search.submit') %></button>
     </form>
-    <a class="primary-link" href="/categories"><%= t('nav.allCategories') %><span aria-hidden="true">→</span></a>
+    <div class="hero-actions" aria-label="Основные действия">
+      <a class="hero-action hero-action-primary" href="/categories">Смотреть объявления<span aria-hidden="true">→</span></a>
+      <a class="hero-action" href="/submit">Подать объявление<span aria-hidden="true">＋</span></a>
+      <a class="hero-action" href="/forum">Пообщаться<span aria-hidden="true">↗</span></a>
+    </div>
   </div>
   <div class="hero-illustration" aria-hidden="true">
     <div class="hero-medallion">

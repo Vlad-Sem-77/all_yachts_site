@@ -30,7 +30,7 @@
       <button class="secondary-button" name="action" value="<%= topic.isLocked ? "unlock" : "lock" %>"><%= topic.isLocked ? "Открыть тему" : "Закрыть тему" %></button>
       <button class="secondary-button" name="action" value="<%= topic.isPinned ? "unpin" : "pin" %>"><%= topic.isPinned ? "Открепить" : "Закрепить" %></button>
     </form>
-    <% if (forumUser) { %><form class="forum-ban-form" method="post" action="/forum/moderation/bans"><input type="hidden" name="_csrf" value="<%= csrf %>" /><input type="hidden" name="sectionId" value="<%= topic.sectionId %>" /><label>ID пользователя для блокировки<input type="number" min="1" name="userId" required /></label><label>Причина<input name="reason" maxlength="300" /></label><button class="secondary-button" name="action" value="ban">Заблокировать на 7 дней</button></form><% } %>
+    <form class="forum-ban-form" method="post" action="/forum/moderation/bans"><input type="hidden" name="_csrf" value="<%= csrf %>" /><input type="hidden" name="sectionId" value="<%= topic.sectionId %>" /><label>ID пользователя для блокировки<input type="number" min="1" name="userId" required /></label><label>Причина<input name="reason" maxlength="300" /></label><button class="secondary-button" name="action" value="ban">Заблокировать на 7 дней</button></form>
   <% } %>
   <section class="forum-compose" id="post-new">
     <h2>Ваш ответ</h2>

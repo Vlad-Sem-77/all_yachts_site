@@ -1,4 +1,4 @@
-import { and, eq, isNotNull, or } from "drizzle-orm";
+import { and, eq, gte, isNotNull, or, sql } from "drizzle-orm";
 import { Router, type Request } from "express";
 import { getAuth } from "@clerk/express";
 import {
@@ -7,6 +7,7 @@ import {
   db,
   ensureForumSections,
   forumSections,
+  forumPosts,
   forumTopics,
   getOrCreateForumUser,
 } from "@workspace/db";
@@ -79,20 +80,59 @@ router.post("/listings/:id/discuss", async (req, res): Promise<void> => {
     res.status(503).json({ error: "Раздел обсуждений ещё не готов." });
     return;
   }
-  const [created] = await db
-    .insert(forumTopics)
-    .values({
-      sectionId: section.id,
-      listingId: listing.id,
-      authorId: user.id,
-      title: listing.title.slice(0, 160),
-    })
-    .onConflictDoNothing({
-      target: forumTopics.listingId,
-      where: isNotNull(forumTopics.listingId),
-    })
-    .returning({ id: forumTopics.id });
-  const existing = created
+  const [alreadyExists] = await db.select({ id: forumTopics.id })
+    .from(forumTopics).where(eq(forumTopics.listingId, listing.id)).limit(1);
+  if (alreadyExists) {
+    res.json({ topicId: alreadyExists.id, url: `/forum/topic/${alreadyExists.id}` });
+    return;
+  }
+  const result = await db.transaction(async (tx) => {
+    const lockKey = (section.id * 2_147_483 + user.id) | 0;
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(${lockKey})`);
+    const [existingAfterLock] = await tx.select({ id: forumTopics.id })
+      .from(forumTopics).where(eq(forumTopics.listingId, listing.id)).limit(1);
+    if (existingAfterLock) return { id: existingAfterLock.id, created: false, limited: false };
+    if (section.rateLimitSec > 0) {
+      const cutoff = new Date(Date.now() - section.rateLimitSec * 1000);
+      const [recentTopic] = await tx.select({ id: forumTopics.id })
+        .from(forumTopics)
+        .where(and(
+          eq(forumTopics.authorId, user.id),
+          eq(forumTopics.sectionId, section.id),
+          gte(forumTopics.createdAt, cutoff),
+        )).limit(1);
+      const [recentPost] = await tx.select({ id: forumPosts.id })
+        .from(forumPosts)
+        .innerJoin(forumTopics, eq(forumPosts.topicId, forumTopics.id))
+        .where(and(
+          eq(forumPosts.authorId, user.id),
+          eq(forumTopics.sectionId, section.id),
+          gte(forumPosts.createdAt, cutoff),
+        )).limit(1);
+      if (recentTopic || recentPost) return { id: null, created: false, limited: true };
+    }
+    const [created] = await tx
+      .insert(forumTopics)
+      .values({
+        sectionId: section.id,
+        listingId: listing.id,
+        authorId: user.id,
+        title: listing.title.slice(0, 160),
+      })
+      .onConflictDoNothing({
+        target: forumTopics.listingId,
+        where: isNotNull(forumTopics.listingId),
+      })
+      .returning({ id: forumTopics.id });
+    return created
+      ? { id: created.id, created: true, limited: false }
+      : { id: null, created: false, limited: false };
+  });
+  if (result.limited) {
+    res.status(429).json({ error: "Подождите перед созданием следующего обсуждения." });
+    return;
+  }
+  const existing = result.id
     ? null
     : (
         await db
@@ -101,12 +141,12 @@ router.post("/listings/:id/discuss", async (req, res): Promise<void> => {
           .where(eq(forumTopics.listingId, listing.id))
           .limit(1)
       )[0] ?? null;
-  const topicId = created?.id ?? existing?.id;
+  const topicId = result.id ?? existing?.id;
   if (!topicId) {
     res.status(500).json({ error: "Не удалось открыть обсуждение." });
     return;
   }
-  res.status(created ? 201 : 200).json({
+  res.status(result.created ? 201 : 200).json({
     topicId,
     url: `/forum/topic/${topicId}`,
   });

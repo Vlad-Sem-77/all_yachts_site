@@ -24,6 +24,7 @@ import {
   listingReports,
   listingViewEvents,
   listingsTable,
+  forumTopics,
   pendingListingUploads,
   siteSettings,
 } from "@workspace/db";
@@ -513,6 +514,7 @@ router.post("/admin/listings/:id/action", adminRequired, async (req, res) => {
   const now = new Date();
   if (action === "hide") {
     await db.update(boatListings).set({ status: "hidden", updatedAt: now }).where(eq(boatListings.id, id));
+    await db.update(forumTopics).set({ isLocked: true, updatedAt: now }).where(eq(forumTopics.listingId, id));
   } else if (action === "show") {
     if (listing.status === "deleted") {
       res.redirect(303, "/admin/listings?status=deleted&notice=deleted");
@@ -532,6 +534,7 @@ router.post("/admin/listings/:id/action", adminRequired, async (req, res) => {
       .where(eq(boatListings.id, id));
   } else if (action === "delete") {
     await db.update(boatListings).set({ status: "deleted", updatedAt: now }).where(eq(boatListings.id, id));
+    await db.update(forumTopics).set({ isLocked: true, updatedAt: now }).where(eq(forumTopics.listingId, id));
   } else if (action === "pin" || action === "feature" || action === "boost") {
     const until = merchandisingUntil(req.body?.until);
     if (!until) {
@@ -619,6 +622,10 @@ router.post("/admin/reports/:id/action", adminRequired, async (req, res) => {
         .update(boatListings)
         .set({ status: "hidden", updatedAt: new Date() })
         .where(eq(boatListings.id, report.listingId));
+      await tx
+        .update(forumTopics)
+        .set({ isLocked: true, updatedAt: new Date() })
+        .where(eq(forumTopics.listingId, report.listingId));
     }
     await tx
       .update(listingReports)

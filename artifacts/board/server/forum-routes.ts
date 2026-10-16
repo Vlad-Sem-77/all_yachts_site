@@ -20,6 +20,7 @@ import {
   forumSections,
   forumTopics,
   forumUsers,
+  ensureForumSections,
   getOrCreateForumUser,
 } from "@workspace/db";
 import { getAuth } from "@clerk/express";
@@ -148,6 +149,7 @@ router.get("/sign-out", async (_req, res) => {
 });
 
 router.get("/forum", async (_req, res) => {
+  await ensureForumSections();
   const sections = await db
     .select({
       id: forumSections.id,
@@ -196,6 +198,7 @@ router.get("/forum/:sectionSlug", async (req, res, next) => {
   await renderPage(res, "forum-topics", {
     section,
     topics,
+    error: req.query.error,
     csrf: createCsrfToken(),
     title: `${section.title} — форум`,
     description: `Темы раздела «${section.title}».`,
@@ -258,6 +261,8 @@ router.get("/forum/topic/:topicId", async (req, res, next) => {
     viewer,
     canModerate: canModerate(req, viewer),
     listingUrl,
+    error: req.query.error,
+    reported: req.query.reported === "1",
     csrf: createCsrfToken(),
     title: `${topic.title} — форум`,
     description: `Обсуждение: ${topic.title}`,

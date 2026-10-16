@@ -1,6 +1,6 @@
-import { and, eq, gte, isNotNull, isNull, lte, or, lt } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, isNull, lte, or, lt } from "drizzle-orm";
 import type { Logger } from "pino";
-import { boatCategories, boatListings, db } from "@workspace/db";
+import { boatCategories, boatListings, db, forumTopics } from "@workspace/db";
 import { getSiteConfig } from "./site-config";
 import { sendListingExpiryReminder, smtpConfigured } from "./email";
 
@@ -20,6 +20,9 @@ export async function runMaintenance(logger: Logger): Promise<void> {
     .returning({ id: boatListings.id });
 
   if (expired.length) {
+    await db.update(forumTopics)
+      .set({ isLocked: true, updatedAt: now })
+      .where(inArray(forumTopics.listingId, expired.map((item) => item.id)));
     logger.info({ count: expired.length }, "Expired active listings");
   }
   if (!smtpConfigured()) {

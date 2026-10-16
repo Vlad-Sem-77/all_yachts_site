@@ -26,6 +26,7 @@ import {
   listingRateLimitEvents,
   listingReports,
   listingViewEvents,
+  forumTopics,
 } from "@workspace/db";
 import {
   allowRateLimitedAction,
@@ -971,6 +972,9 @@ router.post("/listing/:slug/delete", async (req, res) => {
     .update(boatListings)
     .set({ status: "deleted", updatedAt: new Date() })
     .where(eq(boatListings.id, listing.id));
+  await db.update(forumTopics)
+    .set({ isLocked: true, updatedAt: new Date() })
+    .where(eq(forumTopics.listingId, listing.id));
   await Promise.all(
     photos.flatMap((photo) => [
       deletePrivateObject(photo.objectKey).catch((error) => {
