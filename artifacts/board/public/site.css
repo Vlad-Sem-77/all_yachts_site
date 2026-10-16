@@ -147,7 +147,7 @@ a.footer-social-icon:hover { transform: translateY(-2px); background: radial-gra
   .brand-mark { flex-basis: 48px; width: 48px; height: 48px; }
   .brand-name { font-size: 14px; }
   .brand-name small { font-size: 9px; letter-spacing: .14em; }
-  .main-nav { font-size: 12px; }
+  .main-nav { width: 100%; justify-content: center; gap: 12px; font-size: 12px; }
   .hero-illustration { position: absolute; top: 64px; right: 10px; width: clamp(125px, 37vw, 160px); height: clamp(125px, 37vw, 160px); margin: 0; opacity: .88; }
   .hero-copy { width: calc(100% - 32px); min-height: 380px; padding: 47px 0 42px; }
   .hero-copy h1 { max-width: calc(100% - clamp(140px, 39vw, 170px)); min-height: clamp(125px, 37vw, 160px); margin-top: 15px; font-size: clamp(21px, 6.5vw, 27px); }
@@ -177,6 +177,13 @@ a.footer-social-icon:hover { transform: translateY(-2px); background: radial-gra
   .subcategory-section, .category-listings { padding-top: 31px; }
   .footer-inner { grid-template-columns: 1fr; gap: 25px; padding: 28px 0; }
   .not-found { width: calc(100% - 32px); padding: 68px 0; }
+}
+
+@media (max-width: 400px) {
+  .header-inner { flex-wrap: wrap; justify-content: flex-start; gap: 6px; padding: 8px 0 10px; }
+  .brand { flex: 1 1 100%; }
+  .main-nav { width: 100%; justify-content: center; gap: 12px; }
+  .main-nav a { white-space: nowrap; }
 }
 
 @media (max-width: 360px) {
