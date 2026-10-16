@@ -1,0 +1,99 @@
+<section class="page-heading compact-heading admin-heading">
+  <p class="eyebrow"><%= t("admin.eyebrow") %></p>
+  <h1><%= user.displayName %></h1>
+  <%- include("_admin-nav") %>
+</section>
+<section class="content-section admin-content">
+  <% if (notice) { %><div class="notice-banner"><%= notice %></div><% } %>
+  <p><a class="text-link" href="/admin/users">← <%= t("admin.backToUsers") %></a></p>
+  <div class="admin-panel admin-user-detail">
+    <div class="admin-user-heading">
+      <span class="admin-status <%= user.isActive ? "admin-status-active" : "admin-status-hidden" %>"><%= t(`admin.userAccessLabels.${user.isActive ? "active" : "restricted"}`) %></span>
+      <span class="admin-badge"><%= t(`admin.roleLabels.${user.role}`) %></span>
+      <span class="admin-muted"><%= t("admin.internalUserId") %>: <%= user.id %></span>
+    </div>
+    <p><strong><%= t("admin.clerkUserId") %>:</strong> <code class="admin-user-clerk-id"><%= user.clerkUserId %></code></p>
+    <p><strong><%= t("admin.memberSince") %>:</strong> <%= new Date(user.createdAt).toLocaleString("ru-RU") %></p>
+    <p class="admin-muted"><%= t("admin.userAccessHint") %></p>
+    <div class="admin-user-counts admin-user-stat-counts">
+      <span><strong><%= stats.listings %></strong> <%= t("admin.linkedListings") %></span>
+      <span><strong><%= stats.topics %></strong> <%= t("admin.forumTopics") %></span>
+      <span><strong><%= stats.posts %></strong> <%= t("admin.forumPosts") %></span>
+    </div>
+    <div class="admin-user-actions admin-user-detail-actions">
+      <form method="post" action="/admin/users/<%= user.id %>/role">
+        <input type="hidden" name="_csrf" value="<%= csrf %>" />
+        <label class="form-field">
+          <span><%= t("admin.changeForumRole") %></span>
+          <select name="role">
+            <% ["user", "moderator", "admin"].forEach((role) => { %>
+              <option value="<%= role %>" <%= user.role === role ? "selected" : "" %>><%= t(`admin.roleLabels.${role}`) %></option>
+            <% }) %>
+          </select>
+        </label>
+        <button class="secondary-button" type="submit"><%= t("admin.saveRole") %></button>
+      </form>
+      <form method="post" action="/admin/users/<%= user.id %>/status">
+        <input type="hidden" name="_csrf" value="<%= csrf %>" />
+        <button class="secondary-button" type="submit" name="action" value="<%= user.isActive ? "restrict" : "restore" %>"><%= t(user.isActive ? "admin.restrictParticipation" : "admin.restoreParticipation") %></button>
+      </form>
+    </div>
+  </div>
+
+  <section class="admin-panel">
+    <h2><%= t("admin.linkedListings") %></h2>
+    <p class="admin-muted"><%= t("admin.usersListingLinkNote") %></p>
+    <% if (listings.length) { %>
+      <div class="admin-user-record-list">
+        <% listings.forEach((listing) => { %>
+          <article class="admin-user-record">
+            <div>
+              <a href="/admin/listings/<%= listing.id %>/edit"><strong><%= listing.title %></strong></a>
+              <p class="admin-listing-meta"><%= t(`admin.statusLabels.${listing.status}`) %> · <%= new Date(listing.createdAt).toLocaleDateString("ru-RU") %></p>
+            </div>
+            <a class="text-link" href="/admin/listings/<%= listing.id %>/edit"><%= t("admin.editListing") %></a>
+          </article>
+        <% }) %>
+      </div>
+    <% } else { %><p class="admin-muted"><%= t("admin.emptyUserListings") %></p><% } %>
+  </section>
+
+  <section class="admin-panel">
+    <h2><%= t("admin.recentForumPosts") %></h2>
+    <% if (recentPosts.length) { %>
+      <div class="admin-user-record-list">
+        <% recentPosts.forEach((post) => { %>
+          <article class="admin-user-record admin-user-post">
+            <div>
+              <p class="admin-listing-meta"><%= post.sectionTitle %> · <a href="/forum/topic/<%= post.topicId %>"><%= post.topicTitle %></a> · <%= new Date(post.createdAt).toLocaleString("ru-RU") %> · <%= post.status %></p>
+              <p class="admin-user-post-body"><%= post.body.length > 600 ? `${post.body.slice(0, 600)}…` : post.body %></p>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    <% } else { %><p class="admin-muted"><%= t("admin.emptyUserPosts") %></p><% } %>
+  </section>
+
+  <section class="admin-panel">
+    <h2><%= t("admin.userAuditHistory") %></h2>
+    <% if (auditEvents.length) { %>
+      <div class="admin-user-record-list">
+        <% auditEvents.forEach((event) => { %>
+          <article class="admin-user-record">
+            <div>
+              <strong><%= t(event.action === "forum_role_changed" ? "admin.roleChangeAudit" : "admin.accessChangeAudit") %></strong>
+              <p class="admin-listing-meta">
+                <% if (event.action === "forum_role_changed") { %>
+                  <%= t(`admin.roleLabels.${event.previousValue}`) %> → <%= t(`admin.roleLabels.${event.nextValue}`) %>
+                <% } else { %>
+                  <%= t(`admin.userAccessLabels.${event.previousValue === "active" ? "active" : "restricted"}`) %> → <%= t(`admin.userAccessLabels.${event.nextValue === "active" ? "active" : "restricted"}`) %>
+                <% } %>
+                · <%= new Date(event.createdAt).toLocaleString("ru-RU") %>
+              </p>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    <% } else { %><p class="admin-muted"><%= t("admin.emptyUserAuditHistory") %></p><% } %>
+  </section>
+</section>

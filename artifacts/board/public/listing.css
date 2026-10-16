@@ -158,6 +158,23 @@
 .admin-report-details { white-space: pre-wrap; overflow-wrap: anywhere; }
 .admin-settings-form, .admin-export-panel, .admin-edit-form { max-width: 850px; }
 .admin-listing-main h2 { margin: 7px 0; font-size: 18px; }
+.admin-user-list, .admin-user-record-list { display: grid; gap: 12px; }
+.admin-user-card { display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 0.65fr); gap: 20px; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: #fffdf8; }
+.admin-user-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.admin-user-heading h2 { margin: 0; font-size: 18px; }
+.admin-user-counts { display: flex; flex-wrap: wrap; gap: 14px 22px; margin-top: 12px; color: var(--ink-soft); font-size: 13px; }
+.admin-user-counts strong { color: var(--ink); }
+.admin-user-clerk-id { overflow-wrap: anywhere; color: var(--ink-soft); font-size: 12px; }
+.admin-user-actions { display: grid; align-content: start; gap: 12px; }
+.admin-user-actions form { display: flex; flex-wrap: wrap; align-items: end; gap: 9px; }
+.admin-user-actions .form-field { flex: 1 1 180px; }
+.admin-user-detail { max-width: 920px; }
+.admin-user-stat-counts { margin: 18px 0; }
+.admin-user-detail-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-user-record { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: #fffdf8; }
+.admin-user-record p { margin: 6px 0 0; }
+.admin-user-post { display: block; }
+.admin-user-post-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 560px) {
   .header-inner, .footer-inner, .page-heading, .content-section, .listing-detail { width: min(100% - 28px, 1160px); }
@@ -183,6 +200,8 @@
   .catalog-pagination { gap: 9px; }
   .admin-stats-grid, .admin-category-stats, .admin-filter-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .admin-listing-card { grid-template-columns: 1fr; }
+  .admin-user-card { grid-template-columns: 1fr; }
+  .admin-user-detail-actions { grid-template-columns: 1fr; }
   .admin-listing-thumb { width: 100%; height: 180px; }
   .admin-merch-form { align-items: stretch; flex-direction: column; }
   .cookie-consent { align-items: flex-start; flex-direction: column; }

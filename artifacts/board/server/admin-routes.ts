@@ -9,6 +9,7 @@ import {
   inArray,
   isNull,
   or,
+  sql,
   sum,
 } from "drizzle-orm";
 import { Router, type Request, type RequestHandler, type Response } from "express";
@@ -24,7 +25,11 @@ import {
   listingReports,
   listingViewEvents,
   listingsTable,
+  adminAuditLogs,
+  forumPosts,
+  forumSections,
   forumTopics,
+  forumUsers,
   pendingListingUploads,
   siteSettings,
 } from "@workspace/db";
@@ -55,6 +60,8 @@ import {
 } from "./security";
 import { renderPage } from "./view";
 import { getCategoryOptions } from "./form-routes";
+import { setForumUserActive, setForumUserRole } from "./admin-user-actions";
+import { parseForumUserRole } from "./user-access";
 
 const router = Router();
 const PAGE_SIZE = 30;
@@ -277,6 +284,203 @@ router.get("/admin", adminRequired, async (_req, res) => {
     },
     categoryStats,
   });
+});
+
+router.get("/admin/users", adminRequired, async (req, res) => {
+  const query = text(req.query.q, 120);
+  const requestedRole = text(req.query.role, 20);
+  const role = parseForumUserRole(requestedRole);
+  const requestedStatus = text(req.query.status, 12);
+  const status = ["active", "restricted"].includes(requestedStatus)
+    ? requestedStatus
+    : "";
+  const requestedPage = integer(req.query.page, 1, 1_000_000) ?? 1;
+  const conditions = [];
+  if (query) {
+    const pattern = `%${query.replace(/[\\%_]/g, "\\$&")}%`;
+    const numericId = integer(query, 1, 2_147_483_647);
+    conditions.push(
+      or(
+        ilike(forumUsers.displayName, pattern),
+        ilike(forumUsers.clerkUserId, pattern),
+        numericId ? eq(forumUsers.id, numericId) : undefined,
+      )!,
+    );
+  }
+  if (role) conditions.push(eq(forumUsers.role, role));
+  if (status === "active") conditions.push(eq(forumUsers.isActive, true));
+  if (status === "restricted") conditions.push(eq(forumUsers.isActive, false));
+  const where = conditions.length ? and(...conditions) : undefined;
+  const [{ total }] = await db
+    .select({ total: count() })
+    .from(forumUsers)
+    .where(where);
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
+  const users = await db
+    .select({
+      id: forumUsers.id,
+      clerkUserId: forumUsers.clerkUserId,
+      displayName: forumUsers.displayName,
+      role: forumUsers.role,
+      isActive: forumUsers.isActive,
+      createdAt: forumUsers.createdAt,
+      listingCount: sql<number>`count(distinct ${boatListings.id})::int`,
+      topicCount: sql<number>`count(distinct ${forumTopics.id})::int`,
+      postCount: sql<number>`count(distinct ${forumPosts.id})::int`,
+    })
+    .from(forumUsers)
+    .leftJoin(
+      boatListings,
+      eq(boatListings.authorClerkUserId, forumUsers.clerkUserId),
+    )
+    .leftJoin(forumTopics, eq(forumTopics.authorId, forumUsers.id))
+    .leftJoin(forumPosts, eq(forumPosts.authorId, forumUsers.id))
+    .where(where)
+    .groupBy(forumUsers.id)
+    .orderBy(desc(forumUsers.createdAt), desc(forumUsers.id))
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE);
+  await renderAdmin(res, "admin-users", {
+    users,
+    total,
+    page,
+    pageCount,
+    filters: { q: query, role: role ?? "", status },
+    notice: req.query.notice === "saved" ? t("admin.userChangesSaved") : "",
+  });
+});
+
+router.get("/admin/users/:userId", adminRequired, async (req, res) => {
+  const userId = integer(req.params.userId, 1, 2_147_483_647);
+  if (!userId) {
+    res.sendStatus(404);
+    return;
+  }
+  const [user] = await db
+    .select()
+    .from(forumUsers)
+    .where(eq(forumUsers.id, userId))
+    .limit(1);
+  if (!user) {
+    res.sendStatus(404);
+    return;
+  }
+  const [
+    listingCountRows,
+    topicCountRows,
+    postCountRows,
+    listings,
+    recentPosts,
+    auditEvents,
+  ] = await Promise.all([
+    db
+      .select({ total: count() })
+      .from(boatListings)
+      .where(eq(boatListings.authorClerkUserId, user.clerkUserId)),
+    db
+      .select({ total: count() })
+      .from(forumTopics)
+      .where(eq(forumTopics.authorId, user.id)),
+    db
+      .select({ total: count() })
+      .from(forumPosts)
+      .where(eq(forumPosts.authorId, user.id)),
+    db
+      .select({
+        id: boatListings.id,
+        slug: boatListings.slug,
+        title: boatListings.title,
+        status: boatListings.status,
+        createdAt: boatListings.createdAt,
+      })
+      .from(boatListings)
+      .where(eq(boatListings.authorClerkUserId, user.clerkUserId))
+      .orderBy(desc(boatListings.createdAt), desc(boatListings.id))
+      .limit(30),
+    db
+      .select({
+        id: forumPosts.id,
+        body: forumPosts.body,
+        status: forumPosts.status,
+        createdAt: forumPosts.createdAt,
+        topicId: forumTopics.id,
+        topicTitle: forumTopics.title,
+        sectionTitle: forumSections.title,
+      })
+      .from(forumPosts)
+      .innerJoin(forumTopics, eq(forumPosts.topicId, forumTopics.id))
+      .innerJoin(forumSections, eq(forumTopics.sectionId, forumSections.id))
+      .where(eq(forumPosts.authorId, user.id))
+      .orderBy(desc(forumPosts.createdAt), desc(forumPosts.id))
+      .limit(10),
+    db
+      .select({
+        id: adminAuditLogs.id,
+        action: adminAuditLogs.action,
+        previousValue: adminAuditLogs.previousValue,
+        nextValue: adminAuditLogs.nextValue,
+        createdAt: adminAuditLogs.createdAt,
+      })
+      .from(adminAuditLogs)
+      .where(eq(adminAuditLogs.targetUserId, user.id))
+      .orderBy(desc(adminAuditLogs.createdAt), desc(adminAuditLogs.id))
+      .limit(20),
+  ]);
+  await renderAdmin(res, "admin-user", {
+    user,
+    stats: {
+      listings: listingCountRows[0]?.total ?? 0,
+      topics: topicCountRows[0]?.total ?? 0,
+      posts: postCountRows[0]?.total ?? 0,
+    },
+    listings,
+    recentPosts,
+    auditEvents,
+    notice: req.query.notice === "saved" ? t("admin.userChangesSaved") : "",
+  });
+});
+
+router.post("/admin/users/:userId/role", adminRequired, async (req, res) => {
+  if (!adminCsrf(req)) {
+    res.sendStatus(403);
+    return;
+  }
+  const userId = integer(req.params.userId, 1, 2_147_483_647);
+  const role = parseForumUserRole(req.body?.role);
+  if (!userId || !role) {
+    res.sendStatus(400);
+    return;
+  }
+  const result = await setForumUserRole(userId, role, getIpHash(req));
+  if (result === "not-found") {
+    res.sendStatus(404);
+    return;
+  }
+  res.redirect(303, `/admin/users/${userId}?notice=saved`);
+});
+
+router.post("/admin/users/:userId/status", adminRequired, async (req, res) => {
+  if (!adminCsrf(req)) {
+    res.sendStatus(403);
+    return;
+  }
+  const userId = integer(req.params.userId, 1, 2_147_483_647);
+  const action = text(req.body?.action, 16);
+  if (!userId || !["restrict", "restore"].includes(action)) {
+    res.sendStatus(400);
+    return;
+  }
+  const result = await setForumUserActive(
+    userId,
+    action === "restore",
+    getIpHash(req),
+  );
+  if (result === "not-found") {
+    res.sendStatus(404);
+    return;
+  }
+  res.redirect(303, `/admin/users/${userId}?notice=saved`);
 });
 
 router.get("/admin/listings", adminRequired, async (req, res) => {

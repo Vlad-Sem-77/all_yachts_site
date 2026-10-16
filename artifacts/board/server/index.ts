@@ -14,6 +14,7 @@ import {
   getOrCreateForumUser,
 } from "@workspace/db";
 import { hasAdminSession } from "./admin-auth";
+import { canModerateByForumRole } from "./user-access";
 import adminRoutes from "./admin-routes";
 import { getSiteConfig } from "./site-config";
 import formRoutes from "./form-routes";
@@ -102,8 +103,7 @@ app.use(async (req, res, next) => {
     res.locals.forumUser = forumUser;
     res.locals.canModerateForum =
       hasAdminSession(req) ||
-      forumUser?.role === "moderator" ||
-      forumUser?.role === "admin";
+      canModerateByForumRole(forumUser?.role, forumUser?.isActive);
     next();
   } catch (error) {
     next(error);

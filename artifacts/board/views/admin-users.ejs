@@ -1,0 +1,91 @@
+<section class="page-heading compact-heading admin-heading">
+  <p class="eyebrow"><%= t("admin.eyebrow") %></p>
+  <h1><%= t("admin.users") %></h1>
+  <%- include("_admin-nav") %>
+</section>
+<section class="content-section admin-content">
+  <% if (notice) { %><div class="notice-banner"><%= notice %></div><% } %>
+  <p class="admin-muted"><%= t("admin.userAccessHint") %></p>
+  <p class="admin-muted"><%= t("admin.usersListingLinkNote") %></p>
+  <form class="admin-filter-form admin-user-filters" method="get" action="/admin/users">
+    <label class="form-field">
+      <span><%= t("admin.userSearch") %></span>
+      <input name="q" value="<%= filters.q %>" maxlength="120" />
+    </label>
+    <label class="form-field">
+      <span><%= t("admin.userRole") %></span>
+      <select name="role">
+        <option value=""><%= t("admin.anyUserRole") %></option>
+        <% ["user", "moderator", "admin"].forEach((role) => { %>
+          <option value="<%= role %>" <%= filters.role === role ? "selected" : "" %>><%= t(`admin.roleLabels.${role}`) %></option>
+        <% }) %>
+      </select>
+    </label>
+    <label class="form-field">
+      <span><%= t("admin.userAccessStatus") %></span>
+      <select name="status">
+        <option value=""><%= t("admin.anyUserStatus") %></option>
+        <% ["active", "restricted"].forEach((status) => { %>
+          <option value="<%= status %>" <%= filters.status === status ? "selected" : "" %>><%= t(`admin.userAccessLabels.${status}`) %></option>
+        <% }) %>
+      </select>
+    </label>
+    <button class="primary-button" type="submit"><%= t("admin.filter") %></button>
+  </form>
+  <p class="admin-results-count"><%= total %> <%= t("admin.records") %></p>
+
+  <% if (users.length) { %>
+    <div class="admin-user-list">
+      <% users.forEach((user) => { %>
+        <article class="admin-user-card">
+          <div class="admin-user-identity">
+            <div class="admin-user-heading">
+              <h2><a href="/admin/users/<%= user.id %>"><%= user.displayName %></a></h2>
+              <span class="admin-status <%= user.isActive ? "admin-status-active" : "admin-status-hidden" %>"><%= t(`admin.userAccessLabels.${user.isActive ? "active" : "restricted"}`) %></span>
+              <span class="admin-badge"><%= t(`admin.roleLabels.${user.role}`) %></span>
+            </div>
+            <p class="admin-listing-meta"><%= t("admin.internalUserId") %>: <%= user.id %> · <%= t("admin.memberSince") %>: <%= new Date(user.createdAt).toLocaleDateString("ru-RU") %></p>
+            <p class="admin-user-clerk-id"><%= t("admin.clerkUserId") %>: <code><%= user.clerkUserId %></code></p>
+            <p class="admin-user-counts">
+              <span><strong><%= user.listingCount %></strong> <%= t("admin.listings") %></span>
+              <span><strong><%= user.topicCount %></strong> <%= t("admin.forumTopics") %></span>
+              <span><strong><%= user.postCount %></strong> <%= t("admin.forumPosts") %></span>
+            </p>
+          </div>
+          <div class="admin-user-actions">
+            <form method="post" action="/admin/users/<%= user.id %>/role">
+              <input type="hidden" name="_csrf" value="<%= csrf %>" />
+              <label class="form-field">
+                <span><%= t("admin.changeForumRole") %></span>
+                <select name="role">
+                  <% ["user", "moderator", "admin"].forEach((role) => { %>
+                    <option value="<%= role %>" <%= user.role === role ? "selected" : "" %>><%= t(`admin.roleLabels.${role}`) %></option>
+                  <% }) %>
+                </select>
+              </label>
+              <button class="secondary-button" type="submit"><%= t("admin.saveRole") %></button>
+            </form>
+            <form method="post" action="/admin/users/<%= user.id %>/status">
+              <input type="hidden" name="_csrf" value="<%= csrf %>" />
+              <button class="secondary-button" type="submit" name="action" value="<%= user.isActive ? "restrict" : "restore" %>"><%= t(user.isActive ? "admin.restrictParticipation" : "admin.restoreParticipation") %></button>
+            </form>
+          </div>
+        </article>
+      <% }) %>
+    </div>
+  <% } else { %>
+    <div class="admin-panel"><p><%= t("admin.emptyUsers") %></p></div>
+  <% } %>
+
+  <% if (pageCount > 1) { %>
+    <nav class="catalog-pagination" aria-label="<%= t("admin.users") %>">
+      <% if (page > 1) { %>
+        <a href="/admin/users?q=<%= encodeURIComponent(filters.q) %>&role=<%= encodeURIComponent(filters.role) %>&status=<%= encodeURIComponent(filters.status) %>&page=<%= page - 1 %>">←</a>
+      <% } %>
+      <span><%= page %> / <%= pageCount %></span>
+      <% if (page < pageCount) { %>
+        <a href="/admin/users?q=<%= encodeURIComponent(filters.q) %>&role=<%= encodeURIComponent(filters.role) %>&status=<%= encodeURIComponent(filters.status) %>&page=<%= page + 1 %>">→</a>
+      <% } %>
+    </nav>
+  <% } %>
+</section>

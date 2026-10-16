@@ -8,7 +8,8 @@
     "build": "node scripts/build-auth.mjs && rm -rf dist && esbuild server/index.ts --bundle --platform=node --format=esm --target=node24 --outfile=dist/server.mjs --external:express --external:ejs --external:i18next --external:pino --external:pino-http --external:pg --external:drizzle-orm --external:drizzle-zod --external:zod --external:cookie-parser --external:sharp --external:bcryptjs --external:@google-cloud/storage --external:google-auth-library --external:@clerk/express --external:@clerk/shared && cp -R views locales public dist/",
     "build:auth": "node scripts/build-auth.mjs",
     "serve": "node dist/server.mjs",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test server/user-access.test.ts"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

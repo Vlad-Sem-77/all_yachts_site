@@ -30,3 +30,4 @@ export * from "./listing-password-reset-tokens";
 export * from "./listing-view-events";
 export * from "./listing-rate-limit-events";
 export * from "./forum";
+export * from "./admin-audit-logs";

@@ -25,7 +25,13 @@ import {
 } from "@workspace/db";
 import { getAuth } from "@clerk/express";
 import { hasAdminSession } from "./admin-auth";
-import { createCsrfToken, validFormRequest } from "./security";
+import { createCsrfToken, getIpHash, validFormRequest } from "./security";
+import { setForumUserRole } from "./admin-user-actions";
+import {
+  canManageForumRoles,
+  canModerateByForumRole,
+  parseForumUserRole,
+} from "./user-access";
 import { renderPage } from "./view";
 
 const router = Router();
@@ -73,7 +79,7 @@ async function requireUser(req: Request, res: Response) {
 }
 
 function canModerate(req: Request, user: Awaited<ReturnType<typeof currentUser>>): boolean {
-  return hasAdminSession(req) || user?.role === "moderator" || user?.role === "admin";
+  return hasAdminSession(req) || canModerateByForumRole(user?.role, user?.isActive);
 }
 
 function requireCsrf(req: Request, res: Response): boolean {
@@ -358,6 +364,7 @@ router.post("/forum/posts/:postId/report", async (req, res) => {
 router.get("/forum/moderation", async (req, res, next) => {
   const user = await currentUser(req);
   if (!canModerate(req, user)) { next(); return; }
+  const siteAdmin = hasAdminSession(req);
   const reports = await db
     .select({
       id: forumReports.id,
@@ -379,17 +386,19 @@ router.get("/forum/moderation", async (req, res, next) => {
     .where(eq(forumReports.resolved, false))
     .orderBy(forumReports.createdAt);
   const sections = await db.select().from(forumSections).orderBy(forumSections.sortOrder);
-  const users = await db.select({
-    id: forumUsers.id,
-    clerkUserId: forumUsers.clerkUserId,
-    displayName: forumUsers.displayName,
-    role: forumUsers.role,
-  }).from(forumUsers).orderBy(forumUsers.id);
+  const users = siteAdmin
+    ? await db.select({
+        id: forumUsers.id,
+        clerkUserId: forumUsers.clerkUserId,
+        displayName: forumUsers.displayName,
+        role: forumUsers.role,
+      }).from(forumUsers).orderBy(forumUsers.id)
+    : [];
   await renderPage(res, "forum-moderation", {
     reports,
     sections,
     users,
-    canManageUsers: hasAdminSession(req) || user?.role === "admin",
+    canManageUsers: canManageForumRoles(siteAdmin),
     csrf: createCsrfToken(),
     title: "Модерация форума",
     description: "Очередь жалоб и управление обсуждениями.",
@@ -472,12 +481,12 @@ router.post("/forum/moderation/bans", async (req, res) => {
 
 router.post("/forum/moderation/users/:userId/role", async (req, res) => {
   if (!requireCsrf(req, res)) return;
-  const admin = await currentUser(req);
-  if (!(hasAdminSession(req) || admin?.role === "admin")) { res.sendStatus(403); return; }
+  if (!canManageForumRoles(hasAdminSession(req))) { res.sendStatus(403); return; }
   const userId = Number(req.params.userId);
-  const role = clean(req.body?.role, 20);
-  if (!["user", "moderator", "admin"].includes(role)) { res.sendStatus(400); return; }
-  await db.update(forumUsers).set({ role, updatedAt: new Date() }).where(eq(forumUsers.id, userId));
+  const role = parseForumUserRole(req.body?.role);
+  if (!Number.isSafeInteger(userId) || userId <= 0 || !role) { res.sendStatus(400); return; }
+  const result = await setForumUserRole(userId, role, getIpHash(req));
+  if (result === "not-found") { res.sendStatus(404); return; }
   res.redirect(303, "/forum/moderation");
 });
 

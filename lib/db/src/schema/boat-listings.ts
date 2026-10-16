@@ -47,6 +47,7 @@ export const boatListings = pgTable(
     telegram: text("telegram"),
     whatsapp: text("whatsapp"),
     email: text("email"),
+    authorClerkUserId: text("author_clerk_user_id"),
     authorPasswordHash: text("author_password_hash").notNull(),
     submissionIpHash: text("submission_ip_hash"),
     status: text("status").notNull().default("active"),
@@ -80,6 +81,7 @@ export const boatListings = pgTable(
       table.isFeatured,
       table.priority,
     ),
+    index("boat_listings_author_clerk_user_id_idx").on(table.authorClerkUserId),
     index("boat_listings_ip_created_idx").on(
       table.submissionIpHash,
       table.createdAt,

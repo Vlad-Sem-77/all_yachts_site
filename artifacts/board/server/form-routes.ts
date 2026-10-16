@@ -450,6 +450,15 @@ router.post("/submit", async (req: Request, res: Response) => {
 
   const { authorPassword: authorPasswordPlaintext, ...listingValues } = validation.value;
   const authorPasswordHash = await bcrypt.hash(authorPasswordPlaintext ?? "", 12);
+  const sessionForumUser = res.locals.forumUser as
+    | { clerkUserId?: unknown; isActive?: unknown }
+    | null
+    | undefined;
+  const authorClerkUserId =
+    sessionForumUser?.isActive === true &&
+    typeof sessionForumUser.clerkUserId === "string"
+      ? sessionForumUser.clerkUserId
+      : null;
   let listingId: number | undefined;
   try {
     await db.transaction(async (tx) => {
@@ -484,6 +493,7 @@ router.post("/submit", async (req: Request, res: Response) => {
         .insert(boatListings)
         .values({
           ...listingValues,
+          authorClerkUserId,
           authorPasswordHash,
           submissionIpHash: ipHash,
           expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
