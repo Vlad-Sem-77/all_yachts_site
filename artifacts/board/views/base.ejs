@@ -15,7 +15,7 @@
     <% if (ogImage) { %><meta property="og:image" content="<%= ogImage %>" /><% } %>
     <meta name="twitter:card" content="<%= ogImage ? 'summary_large_image' : 'summary' %>" />
     <title><%= title || t('home.title') %></title>
-    <link rel="stylesheet" href="/assets/site.css?v=9" />
+    <link rel="stylesheet" href="/assets/site.css?v=10" />
     <link rel="stylesheet" href="/assets/listing.css" />
     <link rel="stylesheet" href="/assets/forum.css" />
     <link rel="icon" href="/assets/emblem.png" type="image/png" />
@@ -57,7 +57,19 @@
         <div class="footer-inner">
           <div>
             <a class="footer-brand" href="/"><%= t('brand.name') %></a>
-            <p><%= t('footer.tagline') %></p>
+            <div class="footer-socials" role="group" aria-label="Социальные сети и форум">
+              <span class="footer-social-icon" role="img" aria-label="Telegram" title="Telegram">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.4 4.1 18.2 20c-.2 1.1-.9 1.4-1.8.9l-5-3.7-2.4 2.3c-.3.3-.5.5-1 .5l.4-5.1 9.3-8.4c.4-.4-.1-.6-.6-.2L5.6 13.6.7 12c-1.1-.3-1.1-1 .2-1.5L19.8 3c.9-.3 1.7.2 1.6 1.1Z"/></svg>
+              </span>
+              <span class="footer-social-icon footer-social-vk" role="img" aria-label="ВКонтакте" title="ВКонтакте">vk</span>
+              <a class="footer-social-icon" href="/forum" aria-label="Форум" title="Форум">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10v4h3l5 4V6l-5 4H3Zm11-1.5a5 5 0 0 1 0 7m2.5-9.5a8.5 8.5 0 0 1 0 12M4 18l1.5 3h3L7 17.8"/></svg>
+              </a>
+              <span class="footer-social-icon" role="img" aria-label="TikTok" title="TikTok">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3h3c.2 2 1.4 3.6 4 4v3.2a9 9 0 0 1-4-1.2v6.1a6.2 6.2 0 1 1-6.2-6.2c.4 0 .8 0 1.2.1v3.3a3 3 0 1 0 1.9 2.8V3Z"/></svg>
+              </span>
+              <span class="footer-social-icon footer-social-max" role="img" aria-label="MAX" title="MAX">MAX</span>
+            </div>
           </div>
           <div class="footer-categories">
             <strong><%= t('footer.categories') %></strong>
