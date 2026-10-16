@@ -1,5 +1,5 @@
-import { and, eq, isNotNull, or, sql } from "drizzle-orm";
-import { Router } from "express";
+import { and, eq, isNotNull, or } from "drizzle-orm";
+import { Router, type Request } from "express";
 import { getAuth } from "@clerk/express";
 import {
   boatCategories,
@@ -14,7 +14,7 @@ import { getClerkProxyHost } from "../middlewares/clerkProxyMiddleware";
 
 const router = Router();
 
-function isSameOrigin(req: Parameters<Parameters<typeof router.post>[1]>[0]): boolean {
+function isSameOrigin(req: Request): boolean {
   const origin = req.get("origin");
   if (!origin) return false;
   try {
@@ -89,7 +89,7 @@ router.post("/listings/:id/discuss", async (req, res): Promise<void> => {
     })
     .onConflictDoNothing({
       target: forumTopics.listingId,
-      targetWhere: isNotNull(forumTopics.listingId),
+      where: isNotNull(forumTopics.listingId),
     })
     .returning({ id: forumTopics.id });
   const existing = created

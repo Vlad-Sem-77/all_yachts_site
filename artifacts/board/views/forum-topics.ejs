@@ -2,7 +2,7 @@
   <nav class="breadcrumbs" aria-label="Навигация"><a href="/">Главная</a><span aria-hidden="true">/</span><a href="/forum">Форум</a><span aria-hidden="true">/</span><span aria-current="page"><%= section.title %></span></nav>
   <header class="forum-hero forum-hero-row">
     <div><p class="eyebrow">Раздел форума</p><h1><%= section.title %></h1><p>Читайте открытые темы или войдите, чтобы создать новую.</p></div>
-    <% if (section.kind !== "listing") { %><a class="primary-button" href="/forum/<%= section.slug %>/new">Новая тема <span aria-hidden="true">＋</span></a><% } %>
+    <% if (section.kind !== "listing") { %><a class="primary-button" href="#new-topic">Новая тема <span aria-hidden="true">＋</span></a><% } %>
   </header>
   <% if (topics.length) { %>
     <div class="forum-topic-list">

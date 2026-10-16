@@ -18,7 +18,7 @@
             <details><summary>Пожаловаться</summary><form method="post" action="/forum/posts/<%= post.id %>/report"><input type="hidden" name="_csrf" value="<%= csrf %>" /><select name="reason" aria-label="Причина жалобы"><% if (topic.kind === "flood") { %><option value="illegal">Незаконный контент</option><% } else { %><option value="spam">Спам</option><option value="harassment">Оскорбления</option><option value="illegal">Незаконный контент</option><option value="other">Другое</option><% } %></select><button type="submit" class="text-button">Отправить</button></form></details>
           <% } %>
           <% if (canModerate && post.status === "visible") { %>
-            <form method="post" action="/forum/moderation/reports/0"><input type="hidden" name="_csrf" value="<%= csrf %>" /><input type="hidden" name="postId" value="<%= post.id %>" /><button class="text-button" type="submit" formaction="/forum/moderation/posts/<%= post.id %>" name="action" value="hide">Скрыть сообщение</button><button class="text-button" type="submit" formaction="/forum/moderation/posts/<%= post.id %>" name="action" value="delete">Удалить</button></form>
+            <form method="post" action="/forum/moderation/posts/<%= post.id %>"><input type="hidden" name="_csrf" value="<%= csrf %>" /><button class="text-button" type="submit" name="action" value="hide">Скрыть сообщение</button><button class="text-button" type="submit" name="action" value="delete">Удалить</button></form>
           <% } %>
         </div>
       </article>
@@ -29,8 +29,8 @@
       <input type="hidden" name="_csrf" value="<%= csrf %>" />
       <button class="secondary-button" name="action" value="<%= topic.isLocked ? "unlock" : "lock" %>"><%= topic.isLocked ? "Открыть тему" : "Закрыть тему" %></button>
       <button class="secondary-button" name="action" value="<%= topic.isPinned ? "unpin" : "pin" %>"><%= topic.isPinned ? "Открепить" : "Закрепить" %></button>
-      <% if (forumUser) { %><label>Заблокировать автора в разделе<input type="number" min="1" name="banUserId" placeholder="ID пользователя" /><button class="text-button" formaction="/forum/moderation/bans" name="action" value="ban">На 7 дней</button></label><% } %>
     </form>
+    <% if (forumUser) { %><form class="forum-ban-form" method="post" action="/forum/moderation/bans"><input type="hidden" name="_csrf" value="<%= csrf %>" /><input type="hidden" name="sectionId" value="<%= topic.sectionId %>" /><label>ID пользователя для блокировки<input type="number" min="1" name="userId" required /></label><label>Причина<input name="reason" maxlength="300" /></label><button class="secondary-button" name="action" value="ban">Заблокировать на 7 дней</button></form><% } %>
   <% } %>
   <section class="forum-compose" id="post-new">
     <h2>Ваш ответ</h2>

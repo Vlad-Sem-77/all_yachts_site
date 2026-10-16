@@ -574,6 +574,7 @@ async function renderListing(
   await renderPage(res, "listing", {
     categories: footerCategories,
     listing,
+    currentListingPath: `/category/${routeCategorySlug}/${listing.slug}`,
     category,
     parent,
     categoryPath: routeCategorySlug,

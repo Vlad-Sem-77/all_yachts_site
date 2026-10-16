@@ -5,6 +5,7 @@ import {
   eq,
   gte,
   isNull,
+  ne,
   or,
   sql,
 } from "drizzle-orm";
@@ -108,6 +109,7 @@ async function postWithRateLimit(
       .where(and(
         eq(forumTopics.authorId, userId),
         eq(forumTopics.sectionId, section.id),
+        ne(forumTopics.id, topicId),
         gte(forumTopics.createdAt, cutoff),
       ))
       .limit(1);
@@ -372,9 +374,16 @@ router.get("/forum/moderation", async (req, res, next) => {
     .where(eq(forumReports.resolved, false))
     .orderBy(forumReports.createdAt);
   const sections = await db.select().from(forumSections).orderBy(forumSections.sortOrder);
+  const users = await db.select({
+    id: forumUsers.id,
+    clerkUserId: forumUsers.clerkUserId,
+    displayName: forumUsers.displayName,
+    role: forumUsers.role,
+  }).from(forumUsers).orderBy(forumUsers.id);
   await renderPage(res, "forum-moderation", {
     reports,
     sections,
+    users,
     canManageUsers: hasAdminSession(req) || user?.role === "admin",
     csrf: createCsrfToken(),
     title: "Модерация форума",
@@ -416,6 +425,19 @@ router.post("/forum/moderation/topics/:topicId", async (req, res) => {
     await db.update(forumTopics).set({ isPinned: action === "pin" }).where(eq(forumTopics.id, id));
   }
   res.redirect(303, `/forum/topic/${id}`);
+});
+
+router.post("/forum/moderation/posts/:postId", async (req, res) => {
+  if (!requireCsrf(req, res)) return;
+  const user = await currentUser(req);
+  if (!canModerate(req, user)) { res.sendStatus(403); return; }
+  const id = Number(req.params.postId);
+  const action = clean(req.body?.action, 16);
+  if (!["hide", "delete", "restore"].includes(action)) { res.sendStatus(400); return; }
+  const status = action === "hide" ? "hidden" : action === "delete" ? "deleted" : "visible";
+  const [post] = await db.update(forumPosts).set({ status }).where(eq(forumPosts.id, id)).returning({ topicId: forumPosts.topicId });
+  if (!post) { res.sendStatus(404); return; }
+  res.redirect(303, `/forum/topic/${post.topicId}`);
 });
 
 router.post("/forum/moderation/bans", async (req, res) => {
