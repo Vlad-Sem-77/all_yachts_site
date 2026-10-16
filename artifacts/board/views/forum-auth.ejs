@@ -1,0 +1,12 @@
+<section class="forum-auth-page">
+  <nav class="breadcrumbs" aria-label="Навигация">
+    <a href="/">Главная</a><span aria-hidden="true">/</span><a href="/forum">Форум</a>
+  </nav>
+  <div class="forum-auth-intro">
+    <p class="eyebrow">Сообщество «Слон»</p>
+    <h1><%= mode === "sign-up" ? "Создать аккаунт" : mode === "sign-out" ? "Выход" : "Войти в аккаунт" %></h1>
+    <p>Аккаунт нужен, чтобы создавать темы и участвовать в обсуждениях.</p>
+  </div>
+  <div data-forum-auth data-mode="<%= mode %>"></div>
+</section>
+<script type="module" src="/assets/forum-auth.js"></script>

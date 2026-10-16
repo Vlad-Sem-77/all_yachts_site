@@ -1,14 +1,23 @@
 import { and, count, desc, eq, gte, inArray, isNull, or } from "drizzle-orm";
 import cookieParser from "cookie-parser";
 import express, { type Request, type Response } from "express";
+import { clerkMiddleware, getAuth } from "@clerk/express";
+import { publishableKeyFromHost } from "@clerk/shared/keys";
 import pino from "pino";
 import pinoHttp from "pino-http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { boatCategories, boatListings, db } from "@workspace/db";
+import {
+  boatCategories,
+  boatListings,
+  db,
+  getOrCreateForumUser,
+} from "@workspace/db";
+import { hasAdminSession } from "./admin-auth";
 import adminRoutes from "./admin-routes";
 import { getSiteConfig } from "./site-config";
 import formRoutes from "./form-routes";
+import forumRoutes from "./forum-routes";
 import listingRoutes, {
   getCatalogPage,
   getListingCards,
@@ -21,6 +30,12 @@ import { runMaintenance } from "./maintenance";
 const rootDir = path.resolve(fileURLToPath(new URL("..", import.meta.url)));
 const publicDir = path.join(rootDir, "public");
 const logger = pino({ level: process.env.LOG_LEVEL ?? "info" });
+
+function getClerkProxyHost(req: Request): string | undefined {
+  const forwarded = req.headers["x-forwarded-host"];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return raw?.split(",")[0]?.trim() || req.headers.host?.trim() || undefined;
+}
 
 const app = express();
 app.set("trust proxy", 1);
@@ -44,6 +59,14 @@ app.use(
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: true, limit: "64kb" }));
 app.use(express.json({ limit: "32kb" }));
+app.use(
+  clerkMiddleware((req) => ({
+    publishableKey: publishableKeyFromHost(
+      getClerkProxyHost(req) ?? "",
+      process.env.CLERK_PUBLISHABLE_KEY,
+    ),
+  })),
+);
 app.use(async (req, res, next) => {
   try {
     const config = await getSiteConfig();
@@ -72,6 +95,20 @@ app.use(async (req, res, next) => {
   }
 });
 app.use("/assets", express.static(publicDir, { maxAge: "1h" }));
+app.use(async (req, res, next) => {
+  try {
+    const userId = getAuth(req).userId;
+    const forumUser = userId ? await getOrCreateForumUser(userId) : null;
+    res.locals.forumUser = forumUser;
+    res.locals.canModerateForum =
+      hasAdminSession(req) ||
+      forumUser?.role === "moderator" ||
+      forumUser?.role === "admin";
+    next();
+  } catch (error) {
+    next(error);
+  }
+});
 
 type CategoryRow = typeof boatCategories.$inferSelect;
 type CategoryView = CategoryRow & {
@@ -167,6 +204,33 @@ async function renderHome(_req: Request, res: Response): Promise<void> {
     title: messages.home.title,
     description: messages.home.description,
     formatPrice,
+  });
+}
+
+async function renderCategories(_req: Request, res: Response): Promise<void> {
+  const categories = await getCategoryTree();
+  const siteOrigin = typeof res.locals.siteOrigin === "string" ? res.locals.siteOrigin : "";
+  const pageUrl = typeof res.locals.canonicalUrl === "string"
+    ? res.locals.canonicalUrl
+    : `${siteOrigin}/categories`;
+  const breadcrumbList = [
+    { name: messages.brand.name, item: siteOrigin || "/" },
+    { name: t("nav.categories"), item: pageUrl },
+  ].map((item, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    name: item.name,
+    item: item.item,
+  }));
+  await renderPage(res, "categories", {
+    categories,
+    title: `${t("categoriesPage.title")} | ${messages.brand.name}`,
+    description: t("categoriesPage.description"),
+    structuredData: JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: breadcrumbList,
+    }).replace(/</g, "\\u003c"),
   });
 }
 
@@ -349,6 +413,7 @@ app.get("/sitemap.xml", async (req, res) => {
   const categoryById = new Map(categoryRows.map((row) => [row.id, row]));
   const entries: Array<{ path: string; updatedAt?: Date }> = [
     { path: "/" },
+    { path: "/categories" },
     ...categoryRows.map((category) => ({
       path: category.parentId
         ? `/category/${categoryById.get(category.parentId)?.slug ?? category.slug}/${category.slug}`
@@ -377,7 +442,9 @@ app.get("/sitemap.xml", async (req, res) => {
 app.use(adminRoutes);
 app.use(formRoutes);
 app.use(listingRoutes);
+app.use(forumRoutes);
 app.get("/", renderHome);
+app.get("/categories", renderCategories);
 app.get("/search", renderSearch);
 app.get("/category/:parentSlug/:slug", (req, res) =>
   renderCategory(req, res, req.params.parentSlug),

@@ -61,6 +61,7 @@ export async function getCategoryOptions(): Promise<CategoryOption[]> {
     "katera-otkrytye",
     "motornye-yakhty",
     "parusnye-yakhty",
+    "sudno-na-vozdushnoy-podushke",
   ]);
   const engineCategories = new Set([
     "maloletnie-suda",
@@ -68,6 +69,7 @@ export async function getCategoryOptions(): Promise<CategoryOption[]> {
     "katera-kayutnye",
     "katera-otkrytye",
     "motornye-yakhty",
+    "sudno-na-vozdushnoy-podushke",
     "motory",
   ]);
 

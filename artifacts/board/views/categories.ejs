@@ -1,0 +1,33 @@
+<section class="page-heading">
+  <nav class="breadcrumbs" aria-label="<%= t('accessibility.breadcrumb') %>">
+    <a href="/"><%= t('nav.home') %></a><span aria-hidden="true">/</span>
+    <span aria-current="page"><%= t('nav.categories') %></span>
+  </nav>
+  <p class="eyebrow"><%= t('nav.categories') %></p>
+  <h1><%= t('categoriesPage.heading') %></h1>
+  <p><%= t('categoriesPage.intro') %></p>
+</section>
+
+<section class="content-section categories-directory">
+  <div class="category-grid">
+    <% categories.filter((category) => category.slug !== "maloletnie-suda").forEach((category, index) => { %>
+      <article class="category-card">
+        <a class="category-main-link" href="/category/<%= category.slug %>">
+          <span class="category-number"><%= String(index + 1).padStart(2, "0") %></span>
+          <span class="category-copy">
+            <strong><%= category.nameRu %></strong>
+            <small><%= category.count %> <%= t('category.listingsCount', { count: category.count }) %></small>
+          </span>
+          <span class="category-arrow" aria-hidden="true">↗</span>
+        </a>
+        <% if (category.children.length) { %>
+          <div class="subcategory-links">
+            <% category.children.forEach((child) => { %>
+              <a href="/category/<%= category.slug %>/<%= child.slug %>"><%= child.nameRu %></a>
+            <% }) %>
+          </div>
+        <% } %>
+      </article>
+    <% }) %>
+  </div>
+</section>

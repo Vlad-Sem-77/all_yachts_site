@@ -8,44 +8,13 @@
       <input id="home-search" name="q" type="search" maxlength="100" placeholder="<%= t('search.placeholder') %>" />
       <button class="primary-button" type="submit"><%= t('search.submit') %></button>
     </form>
-    <a class="primary-link" href="#categories"><%= t('nav.allCategories') %><span aria-hidden="true">→</span></a>
+    <a class="primary-link" href="/categories"><%= t('nav.allCategories') %><span aria-hidden="true">→</span></a>
   </div>
   <div class="hero-illustration" aria-hidden="true">
     <div class="hero-medallion">
       <img src="/assets/emblem.png" alt="" />
     </div>
     <span class="hero-coordinate">Море начинается здесь</span>
-  </div>
-</section>
-
-<section class="content-section" id="categories">
-  <div class="section-heading">
-    <div>
-      <p class="eyebrow"><%= t('nav.categories') %></p>
-      <h2><%= t('home.categoriesHeading') %></h2>
-    </div>
-    <p><%= t('home.categoriesDescription') %></p>
-  </div>
-  <div class="category-grid">
-    <% categories.filter((category) => category.slug !== "maloletnie-suda").forEach((category, index) => { %>
-      <article class="category-card">
-        <a class="category-main-link" href="/category/<%= category.slug %>">
-          <span class="category-number"><%= String(index + 1).padStart(2, "0") %></span>
-          <span class="category-copy">
-            <strong><%= category.nameRu %></strong>
-            <small><%= category.count %> <%= t('category.listingsCount', { count: category.count }) %></small>
-          </span>
-          <span class="category-arrow" aria-hidden="true">↗</span>
-        </a>
-        <% if (category.children.length) { %>
-          <div class="subcategory-links">
-            <% category.children.forEach((child) => { %>
-              <a href="/category/<%= category.slug %>/<%= child.slug %>"><%= child.nameRu %></a>
-            <% }) %>
-          </div>
-        <% } %>
-      </article>
-    <% }) %>
   </div>
 </section>
 

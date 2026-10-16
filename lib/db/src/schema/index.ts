@@ -29,3 +29,4 @@ export * from "./listing-author-attempts";
 export * from "./listing-password-reset-tokens";
 export * from "./listing-view-events";
 export * from "./listing-rate-limit-events";
+export * from "./forum";
