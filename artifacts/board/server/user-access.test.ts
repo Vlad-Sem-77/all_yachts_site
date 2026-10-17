@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  canManageForumRoles,
   canModerateByForumRole,
   parseForumUserRole,
 } from "./user-access";
@@ -22,7 +21,3 @@ test("inactive accounts cannot moderate, even with a moderator role", () => {
   assert.equal(canModerateByForumRole("admin", false), false);
 });
 
-test("forum role management requires the separate site-admin session", () => {
-  assert.equal(canManageForumRoles(false), false);
-  assert.equal(canManageForumRoles(true), true);
-});

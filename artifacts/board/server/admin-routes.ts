@@ -358,7 +358,14 @@ router.get("/admin/users/:userId", adminRequired, async (req, res) => {
     return;
   }
   const [user] = await db
-    .select()
+    .select({
+      id: forumUsers.id,
+      clerkUserId: forumUsers.clerkUserId,
+      displayName: forumUsers.displayName,
+      role: forumUsers.role,
+      isActive: forumUsers.isActive,
+      createdAt: forumUsers.createdAt,
+    })
     .from(forumUsers)
     .where(eq(forumUsers.id, userId))
     .limit(1);
@@ -389,7 +396,6 @@ router.get("/admin/users/:userId", adminRequired, async (req, res) => {
     db
       .select({
         id: boatListings.id,
-        slug: boatListings.slug,
         title: boatListings.title,
         status: boatListings.status,
         createdAt: boatListings.createdAt,
@@ -1048,6 +1054,8 @@ router.get("/admin/export", adminRequired, async (req, res) => {
     { name: "listings", load: () => db.select().from(listingsTable) },
     { name: "boat_categories", load: () => db.select().from(boatCategories) },
     { name: "boat_listings", load: () => db.select().from(boatListings) },
+    { name: "forum_users", load: () => db.select().from(forumUsers) },
+    { name: "admin_audit_logs", load: () => db.select().from(adminAuditLogs) },
     { name: "listing_photos", load: () => db.select().from(listingPhotos) },
     { name: "listing_reports", load: () => db.select().from(listingReports) },
     { name: "listing_view_events", load: () => db.select().from(listingViewEvents) },

@@ -16,6 +16,3 @@ export function canModerateByForumRole(
   return isActive === true && (role === "moderator" || role === "admin");
 }
 
-export function canManageForumRoles(isSiteAdmin: boolean): boolean {
-  return isSiteAdmin;
-}

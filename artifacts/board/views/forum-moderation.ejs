@@ -12,8 +12,6 @@
     </div>
   <% } else { %><div class="forum-empty"><span aria-hidden="true">✓</span><h2>Новых жалоб нет</h2></div><% } %>
   <% if (canManageUsers) { %>
-    <section class="forum-compose"><h2>Роли участников</h2>
-      <% users.forEach((member) => { %><form class="forum-user-row" method="post" action="/forum/moderation/users/<%= member.id %>/role"><input type="hidden" name="_csrf" value="<%= csrf %>" /><strong><%= member.displayName %> · <%= member.clerkUserId %></strong><select name="role"><option value="user" <%= member.role === "user" ? "selected" : "" %>>Пользователь</option><option value="moderator" <%= member.role === "moderator" ? "selected" : "" %>>Модератор</option><option value="admin" <%= member.role === "admin" ? "selected" : "" %>>Администратор форума</option></select><button class="text-button">Сохранить</button></form><% }) %>
-    </section>
+    <p><a class="secondary-button" href="/admin/users">Управление пользователями</a></p>
   <% } %>
 </section>

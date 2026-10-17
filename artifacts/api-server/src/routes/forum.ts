@@ -69,7 +69,10 @@ router.post("/listings/:id/discuss", async (req, res): Promise<void> => {
   await ensureForumSections();
   const rootSectionId = listing.parentId ?? listing.categoryId;
   const [section] = await db
-    .select({ id: forumSections.id })
+    .select({
+      id: forumSections.id,
+      rateLimitSec: forumSections.rateLimitSec,
+    })
     .from(forumSections)
     .where(and(
       eq(forumSections.siteSectionId, rootSectionId),

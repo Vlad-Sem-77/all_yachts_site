@@ -26,11 +26,8 @@ import {
 import { getAuth } from "@clerk/express";
 import { hasAdminSession } from "./admin-auth";
 import { createCsrfToken, getIpHash, validFormRequest } from "./security";
-import { setForumUserRole } from "./admin-user-actions";
 import {
-  canManageForumRoles,
   canModerateByForumRole,
-  parseForumUserRole,
 } from "./user-access";
 import { renderPage } from "./view";
 
@@ -386,19 +383,10 @@ router.get("/forum/moderation", async (req, res, next) => {
     .where(eq(forumReports.resolved, false))
     .orderBy(forumReports.createdAt);
   const sections = await db.select().from(forumSections).orderBy(forumSections.sortOrder);
-  const users = siteAdmin
-    ? await db.select({
-        id: forumUsers.id,
-        clerkUserId: forumUsers.clerkUserId,
-        displayName: forumUsers.displayName,
-        role: forumUsers.role,
-      }).from(forumUsers).orderBy(forumUsers.id)
-    : [];
   await renderPage(res, "forum-moderation", {
     reports,
     sections,
-    users,
-    canManageUsers: canManageForumRoles(siteAdmin),
+    canManageUsers: siteAdmin,
     csrf: createCsrfToken(),
     title: "Модерация форума",
     description: "Очередь жалоб и управление обсуждениями.",
@@ -476,17 +464,6 @@ router.post("/forum/moderation/bans", async (req, res) => {
       set: { bannedBy: moderator?.id ?? null, reason: clean(req.body?.reason, 300) || null, createdAt: new Date() },
     });
   }
-  res.redirect(303, "/forum/moderation");
-});
-
-router.post("/forum/moderation/users/:userId/role", async (req, res) => {
-  if (!requireCsrf(req, res)) return;
-  if (!canManageForumRoles(hasAdminSession(req))) { res.sendStatus(403); return; }
-  const userId = Number(req.params.userId);
-  const role = parseForumUserRole(req.body?.role);
-  if (!Number.isSafeInteger(userId) || userId <= 0 || !role) { res.sendStatus(400); return; }
-  const result = await setForumUserRole(userId, role, getIpHash(req));
-  if (result === "not-found") { res.sendStatus(404); return; }
   res.redirect(303, "/forum/moderation");
 });
 
