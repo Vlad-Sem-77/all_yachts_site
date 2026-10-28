@@ -75,6 +75,60 @@
         <div class="revealed-phone" data-phone-result aria-live="polite"
           data-msg-copied="<%= t('listing.copied') %>"
           data-msg-share="<%= t('listing.shareUnavailable') %>"></div>
+        <% if (listing.publicEmail || listing.telegram || listing.maxContact) { %>
+          <div class="seller-contact-list" aria-label="<%= t('listing.contactMethods') %>">
+            <% if (listing.publicEmail) { %>
+              <div class="seller-contact">
+                <span class="seller-contact-label"><%= t("listing.emailContact") %></span>
+                <a class="seller-contact-value" href="mailto:<%= listing.publicEmail %>"><%= listing.publicEmail %></a>
+              </div>
+            <% } %>
+            <% if (listing.telegram) {
+              const telegramValue = String(listing.telegram).trim();
+              const telegramHandle = telegramValue.replace(/^@/, "");
+              const telegramUrl = /^[A-Za-z0-9_]{5,32}$/.test(telegramHandle)
+                ? "https://t.me/" + telegramHandle
+                : null;
+            %>
+              <div class="seller-contact">
+                <span class="seller-contact-label"><%= t("listing.telegramContact") %></span>
+                <% if (telegramUrl) { %>
+                  <a class="seller-contact-value" href="<%= telegramUrl %>" target="_blank" rel="noopener noreferrer">
+                    <%= telegramValue.startsWith("@") ? telegramValue : "@" + telegramValue %>
+                  </a>
+                <% } else { %>
+                  <span class="seller-contact-value"><%= telegramValue %></span>
+                <% } %>
+              </div>
+            <% } %>
+            <% if (listing.maxContact) {
+              const maxValue = String(listing.maxContact).trim();
+              let maxUrl = null;
+              try {
+                const parsedMaxUrl = new URL(maxValue);
+                if (
+                  parsedMaxUrl.protocol === "https:" &&
+                  ["max.ru", "www.max.ru"].includes(parsedMaxUrl.hostname.toLowerCase()) &&
+                  !parsedMaxUrl.username &&
+                  !parsedMaxUrl.password
+                ) {
+                  maxUrl = parsedMaxUrl.href;
+                }
+              } catch {
+                // A MAX username or phone number is displayed as text.
+              }
+            %>
+              <div class="seller-contact">
+                <span class="seller-contact-label"><%= t("listing.maxContact") %></span>
+                <% if (maxUrl) { %>
+                  <a class="seller-contact-value" href="<%= maxUrl %>" target="_blank" rel="noopener noreferrer"><%= maxValue %></a>
+                <% } else { %>
+                  <span class="seller-contact-value"><%= maxValue %></span>
+                <% } %>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
       </div>
 
       <div class="listing-actions">

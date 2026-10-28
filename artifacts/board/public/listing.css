@@ -70,6 +70,11 @@
 .detail-price { margin: 19px 0 8px; color: var(--sea-dark); font-size: 26px; font-weight: 800; }
 .seller-card { display: grid; gap: 11px; margin: 20px 0 14px; padding: 16px; border-radius: 10px; background: var(--sea-pale); }
 .seller-card > strong { font-size: 15px; }
+.seller-contact-list { display: grid; gap: 9px; }
+.seller-contact { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; overflow-wrap: anywhere; }
+.seller-contact-label { color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.seller-contact-value { color: var(--sea-dark); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.seller-contact a { text-decoration-thickness: 1px; text-underline-offset: 2px; }
 .phone-button { width: 100%; }
 .revealed-phone { min-height: 18px; color: var(--sea-dark); font-weight: 750; overflow-wrap: anywhere; }
 .phone-number { font-size: 18px; letter-spacing: .02em; }

@@ -47,6 +47,8 @@ export const boatListings = pgTable(
     telegram: text("telegram"),
     whatsapp: text("whatsapp"),
     email: text("email"),
+    publicEmail: text("public_email"),
+    maxContact: text("max_contact"),
     authorClerkUserId: text("author_clerk_user_id"),
     authorPasswordHash: text("author_password_hash").notNull(),
     submissionIpHash: text("submission_ip_hash"),

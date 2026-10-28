@@ -9,7 +9,7 @@
     "build:auth": "node scripts/build-auth.mjs",
     "serve": "node dist/server.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test server/user-access.test.ts"
+    "test": "node --import tsx --test server/user-access.test.ts server/listing-contact-validation.test.ts"
   },
   "devDependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -2,6 +2,7 @@ const allowedPriceUnits = new Set(["total", "day", "week", "month", "year"]);
 const allowedTransactionTypes = new Set(["sale", "rent"]);
 const allowedConditions = new Set(["new", "used"]);
 const allowedEngineTypes = new Set(["none", "outboard", "inboard", "other"]);
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export interface BoatListingInput {
   categoryId: number;
@@ -29,6 +30,8 @@ export interface BoatListingInput {
   telegram: string | null;
   whatsapp: string | null;
   email: string | null;
+  publicEmail: string | null;
+  maxContact: string | null;
   authorPassword?: string;
 }
 
@@ -151,12 +154,18 @@ export function validateBoatListing(
   }
 
   const email = optionalText(body.email, 254)?.toLowerCase() ?? null;
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+  if (email && !emailPattern.test(email)) {
+    return { ok: false, errorKey: "email" };
+  }
+
+  const publicEmail = optionalText(body.publicEmail, 254)?.toLowerCase() ?? null;
+  if (publicEmail && !emailPattern.test(publicEmail)) {
     return { ok: false, errorKey: "email" };
   }
 
   const telegram = optionalText(body.telegram, 80);
   const whatsapp = optionalText(body.whatsapp, 80);
+  const maxContact = optionalText(body.maxContact, 120);
   if (
     [telegram, whatsapp].some(
       (contact) => contact && (contact.length > 80 || /(?:https?:\/\/|www\.)/i.test(contact)),
@@ -198,6 +207,8 @@ export function validateBoatListing(
       telegram,
       whatsapp,
       email,
+      publicEmail,
+      maxContact,
       ...(options.requirePassword ? { authorPassword } : {}),
     },
   };

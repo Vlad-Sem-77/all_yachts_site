@@ -117,7 +117,23 @@
   <label class="form-field"><span><%= t("submit.phone") %></span><input name="contactPhone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+79991234567" required value="<%= fieldValue("contactPhone") %>" /><small><%= t("submit.phoneHint") %></small></label>
 </div>
 <div class="form-grid form-grid-two">
-  <label class="form-field"><span><%= t("submit.telegram") %></span><input name="telegram" maxlength="80" value="<%= fieldValue("telegram") %>" /></label>
+  <label class="form-field">
+    <span><%= t("submit.telegram") %></span>
+    <input name="telegram" maxlength="80" value="<%= fieldValue("telegram") %>" />
+    <small><%= t("submit.telegramHint") %></small>
+  </label>
+  <label class="form-field">
+    <span><%= t("submit.publicEmail") %></span>
+    <input name="publicEmail" type="email" maxlength="254" autocomplete="email" value="<%= fieldValue("publicEmail") %>" />
+    <small><%= t("submit.publicEmailHint") %></small>
+  </label>
+</div>
+<div class="form-grid form-grid-two">
+  <label class="form-field">
+    <span><%= t("submit.maxContact") %></span>
+    <input name="maxContact" maxlength="120" value="<%= fieldValue("maxContact") %>" />
+    <small><%= t("submit.maxContactHint") %></small>
+  </label>
   <label class="form-field"><span><%= t("submit.whatsapp") %></span><input name="whatsapp" maxlength="80" value="<%= fieldValue("whatsapp") %>" /></label>
 </div>
 <label class="form-field">
