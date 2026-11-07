@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { and, count, desc, eq, gte, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { Router, type Request, type Response } from "express";
 import sharp from "sharp";
 import {
@@ -15,6 +15,7 @@ import {
   createCsrfToken,
   createMathChallenge,
   createOpaqueToken,
+  consumeMathChallenge,
   getIpHash,
   hashSecret,
   isMathChallengeValid,
@@ -23,7 +24,8 @@ import {
 } from "./security";
 import {
   deletePrivateObject,
-  getPrivateObjectFile,
+  downloadPrivateObject,
+  getPrivateObjectSize,
   saveListingImage,
   createStagingUpload,
 } from "./object-storage";
@@ -168,9 +170,7 @@ async function processImage(
   objectPath: string,
   expectedSize: number,
 ): Promise<{ objectKey: string; thumbnailKey: string }> {
-  const sourceFile = await getPrivateObjectFile(objectPath);
-  const [metadata] = await sourceFile.getMetadata();
-  const actualSize = Number(metadata.size);
+  const actualSize = await getPrivateObjectSize(objectPath);
   if (!Number.isFinite(actualSize) || actualSize < 1 || actualSize > MAX_FILE_BYTES) {
     throw new Error("Image size is outside the allowed range.");
   }
@@ -178,7 +178,7 @@ async function processImage(
     throw new Error("Image size is outside the allowed range.");
   }
 
-  const [source] = await sourceFile.download();
+  const source = await downloadPrivateObject(objectPath);
   const image = sharp(source, { failOn: "warning", limitInputPixels: 50_000_000 });
   const imageMetadata = await image.metadata();
   if (!imageMetadata.format || !["jpeg", "png", "webp"].includes(imageMetadata.format)) {
@@ -214,30 +214,71 @@ async function processImage(
 
 async function cleanExpiredStagingObjects(): Promise<void> {
   const now = new Date();
+  const consumedCutoff = new Date(now.getTime() - 30 * 60 * 1000);
   const expired = await db
     .select({ id: pendingListingUploads.id, objectPath: pendingListingUploads.objectPath })
     .from(pendingListingUploads)
-    .where(and(lt(pendingListingUploads.expiresAt, now), isNull(pendingListingUploads.consumedAt)))
-    .orderBy(desc(pendingListingUploads.expiresAt))
+    .where(
+      or(
+        and(lt(pendingListingUploads.expiresAt, now), isNull(pendingListingUploads.consumedAt)),
+        lt(pendingListingUploads.consumedAt, consumedCutoff),
+      ),
+    )
+    .orderBy(asc(pendingListingUploads.expiresAt))
     .limit(25);
+  const deletedUploadIds: number[] = [];
   for (const upload of expired) {
-    await deletePrivateObject(upload.objectPath).catch(() => undefined);
+    try {
+      await deletePrivateObject(upload.objectPath);
+      deletedUploadIds.push(upload.id);
+    } catch {
+      // Keep the row so a later cleanup pass can retry the object deletion.
+    }
   }
-  if (expired.length) {
+  if (deletedUploadIds.length) {
     await db.delete(pendingListingUploads).where(
+      inArray(pendingListingUploads.id, deletedUploadIds),
+    );
+  }
+
+  const expiredChallenges = await db
+    .select({ id: listingCaptchaChallenges.id })
+    .from(listingCaptchaChallenges)
+    .where(lt(listingCaptchaChallenges.expiresAt, now))
+    .limit(100);
+  if (expiredChallenges.length) {
+    await db.delete(listingCaptchaChallenges).where(
       inArray(
-        pendingListingUploads.id,
-        expired.map((upload) => upload.id),
+        listingCaptchaChallenges.id,
+        expiredChallenges.map((challenge) => challenge.id),
       ),
     );
   }
 }
 
 router.get("/submit", async (req, res) => {
-  const categories = await getCategoryOptions();
   const ipHash = getIpHash(req);
+  if (!(await allowRateLimitedAction("submit-page", ipHash, 12, 15 * 60 * 1000))) {
+    res.status(429).send(t("formErrors.rateLimit"));
+    return;
+  }
+  const categories = await getCategoryOptions();
   await cleanExpiredStagingObjects();
   await renderSubmit(res, categories, { _ipHash: ipHash });
+});
+
+router.get("/listing-submitted", async (_req, res) => {
+  res.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+  await renderPage(
+    res,
+    "listing-pending",
+    {
+      categories: await getCategoryOptions(),
+      title: `${t("submit.pendingTitle")} | ${messages.brand.name}`,
+      description: t("submit.pendingMessage"),
+      robots: "noindex, nofollow, noarchive",
+    },
+  );
 });
 
 router.get("/rules", async (_req, res) => {
@@ -255,21 +296,10 @@ router.post("/media/request-urls", async (req, res) => {
     return;
   }
   const ipHash = getIpHash(req);
-  if (!(await allowRateLimitedAction("upload-urls", ipHash, 10, 60 * 60 * 1000))) {
+  if (!(await allowRateLimitedAction("upload-urls", ipHash, 5, 60 * 60 * 1000))) {
     res.status(429).json({ error: t("formErrors.rateLimit") });
     return;
   }
-  if (
-    !(await isMathChallengeValid(
-      req.body.captchaId,
-      req.body.captchaAnswer,
-      ipHash,
-    ))
-  ) {
-    res.status(400).json({ error: t("formErrors.captcha") });
-    return;
-  }
-
   const files = req.body.files;
   if (
     !Array.isArray(files) ||
@@ -288,6 +318,12 @@ router.post("/media/request-urls", async (req, res) => {
     )
   ) {
     res.status(400).json({ error: t("submit.uploadInvalid") });
+    return;
+  }
+
+  const captchaId = typeof req.body.captchaId === "string" ? req.body.captchaId : "";
+  if (!(await isMathChallengeValid(captchaId, req.body.captchaAnswer, ipHash))) {
+    res.status(400).json({ error: t("formErrors.captcha") });
     return;
   }
 
@@ -314,12 +350,26 @@ router.post("/media/request-urls", async (req, res) => {
     throw error;
   }
 
-  res.status(201).json({ draftToken, uploads });
+  if (!(await consumeMathChallenge(captchaId, ipHash))) {
+    await Promise.all(uploads.map((item) => deletePrivateObject(item.objectPath).catch(() => undefined)));
+    res.status(400).json({ error: t("formErrors.captcha") });
+    return;
+  }
+  const captcha = await createMathChallenge(ipHash);
+  res.status(201).json({ draftToken, uploads, captcha });
 });
 
 router.post("/submit", async (req: Request, res: Response) => {
-  const categories = await getCategoryOptions();
   const ipHash = getIpHash(req);
+  if (!validFormRequest(req)) {
+    res.status(403).send(t("formErrors.csrf"));
+    return;
+  }
+  if (!(await allowRateLimitedAction("listing-submit-attempt", ipHash, 6, 60 * 60 * 1000))) {
+    res.status(429).send(t("formErrors.rateLimit"));
+    return;
+  }
+  const categories = await getCategoryOptions();
   const rawValues = req.body as Record<string, unknown>;
   const values = { ...rawValues, _ipHash: ipHash };
   const uploadPaths = stringList(rawValues.uploadPaths);
@@ -334,10 +384,6 @@ router.post("/submit", async (req: Request, res: Response) => {
       uploadPaths,
     });
 
-  if (!validFormRequest(req)) {
-    await fail("csrf", 403);
-    return;
-  }
   if (isHoneypotFilled(rawValues)) {
     await fail("honeypot", 400);
     return;
@@ -384,6 +430,24 @@ router.post("/submit", async (req: Request, res: Response) => {
     ))
   ) {
     await fail("captcha");
+    return;
+  }
+
+  const [dailyCount] = await db
+    .select({ total: count() })
+    .from(boatListings)
+    .where(
+      and(
+        eq(boatListings.submissionIpHash, ipHash),
+        gte(boatListings.createdAt, new Date(Date.now() - 24 * 60 * 60 * 1000)),
+      ),
+    );
+  if (dailyCount.total >= 3) {
+    await fail("dailyLimit", 429);
+    return;
+  }
+  if (!(await consumeMathChallenge(captchaId, ipHash))) {
+    await fail("captchaExpired");
     return;
   }
 
@@ -475,20 +539,6 @@ router.post("/submit", async (req: Request, res: Response) => {
         );
       if (daily.total >= 3) throw new Error("daily-listing-limit");
 
-      const [captchaUsed] = await tx
-        .update(listingCaptchaChallenges)
-        .set({ consumedAt: new Date() })
-        .where(
-          and(
-            eq(listingCaptchaChallenges.id, captchaId),
-            eq(listingCaptchaChallenges.ipHash, ipHash),
-            isNull(listingCaptchaChallenges.consumedAt),
-            gte(listingCaptchaChallenges.expiresAt, new Date()),
-          ),
-        )
-        .returning({ id: listingCaptchaChallenges.id });
-      if (!captchaUsed) throw new Error("captcha-expired");
-
       const [created] = await tx
         .insert(boatListings)
         .values({
@@ -496,7 +546,8 @@ router.post("/submit", async (req: Request, res: Response) => {
           authorClerkUserId,
           authorPasswordHash,
           submissionIpHash: ipHash,
-          expiresAt: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+          status: "pending",
+          expiresAt: null,
         })
         .returning({ id: boatListings.id });
       listingId = created.id;
@@ -530,35 +581,44 @@ router.post("/submit", async (req: Request, res: Response) => {
       await fail("dailyLimit", 429);
       return;
     }
-    if (error instanceof Error && error.message === "captcha-expired") {
-      await fail("captchaExpired");
-      return;
-    }
     throw error;
   }
 
-  await Promise.all([
-    ...uploadPaths.map((objectPath) => deletePrivateObject(objectPath).catch(() => undefined)),
-    db
-      .delete(pendingListingUploads)
-      .where(inArray(pendingListingUploads.id, pending.map((item) => item.id))),
-  ]);
-  const listingSlug = `${slugPart(validation.value.title) || "obyavlenie"}-${listingId}`;
-  const categoryPath = category.parentSlug ?? category.slug;
-  if (smtpConfigured() && siteConfig.newListingNotificationEmail) {
-    const listingUrl = `${siteConfig.siteUrl || `${req.protocol}://${req.get("host")}`}/category/${categoryPath}/${listingSlug}`;
+  const cleanedUploadIds: number[] = [];
+  for (const upload of pending) {
+    try {
+      await deletePrivateObject(upload.objectPath);
+      cleanedUploadIds.push(upload.id);
+    } catch {
+      // Leave the consumed row for the later staging-object cleanup pass.
+    }
+  }
+  if (cleanedUploadIds.length) {
+    await db.delete(pendingListingUploads).where(
+      inArray(pendingListingUploads.id, cleanedUploadIds),
+    );
+  }
+  if (
+    smtpConfigured() &&
+    siteConfig.newListingNotificationEmail &&
+    siteConfig.siteUrl
+  ) {
+    const reviewUrl = new URL(
+      "/admin/listings?status=pending",
+      siteConfig.siteUrl,
+    ).toString();
     try {
       await sendSiteEmail(
         siteConfig.newListingNotificationEmail,
-        "Новое объявление на сайте",
-        `Добавлено объявление «${validation.value.title}».\n${listingUrl}`,
-        `<p>Добавлено объявление «${validation.value.title.replace(/[&<>"']/g, "")}».</p><p><a href="${listingUrl}">Открыть объявление</a></p>`,
+        "Новое объявление ожидает проверки",
+        `Добавлено объявление «${validation.value.title}». Оно ожидает проверки.\n${reviewUrl}`,
+        `<p>Добавлено объявление «${validation.value.title.replace(/[&<>"']/g, "")}». Оно ожидает проверки.</p><p><a href="${reviewUrl}">Открыть очередь модерации</a></p>`,
       );
     } catch {
       req.log?.error("New-listing notification email could not be sent");
     }
   }
-  res.redirect(303, `/category/${categoryPath}/${listingSlug}?published=1`);
+  res.redirect(303, "/listing-submitted");
 });
 
 export default router;

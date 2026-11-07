@@ -1,0 +1,5 @@
+FROM caddy:2
+
+LABEL org.opencontainers.image.source="https://github.com/vlad-sem-77/all_yachts_site"
+
+COPY Caddyfile.deploy-f /etc/caddy/Caddyfile

@@ -7,9 +7,15 @@ out-tsc
 *.tsbuildinfo
 .expo
 .expo-shared
+/generated-artifacts/
 
 # dependencies
 node_modules
+
+# local deployment secrets
+.env
+.env.*
+!.env.example
 
 # IDEs and editors
 /.idea

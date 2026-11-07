@@ -62,6 +62,7 @@ import { renderPage } from "./view";
 import { getCategoryOptions } from "./form-routes";
 import { setForumUserActive, setForumUserRole } from "./admin-user-actions";
 import { parseForumUserRole } from "./user-access";
+import { streamPrivateObject } from "./object-storage";
 
 const router = Router();
 const PAGE_SIZE = 30;
@@ -215,6 +216,7 @@ router.get("/admin", adminRequired, async (_req, res) => {
   const [
     totalListings,
     activeListings,
+    pendingListings,
     hiddenListings,
     expiredListings,
     newToday,
@@ -231,6 +233,10 @@ router.get("/admin", adminRequired, async (_req, res) => {
         eq(boatListings.status, "active"),
         or(isNull(boatListings.expiresAt), gte(boatListings.expiresAt, now)),
       )),
+    db
+      .select({ value: count() })
+      .from(boatListings)
+      .where(eq(boatListings.status, "pending")),
     db
       .select({ value: count() })
       .from(boatListings)
@@ -275,6 +281,7 @@ router.get("/admin", adminRequired, async (_req, res) => {
     stats: {
       totalListings: totalListings[0]?.value ?? 0,
       activeListings: activeListings[0]?.value ?? 0,
+      pendingListings: pendingListings[0]?.value ?? 0,
       hiddenListings: hiddenListings[0]?.value ?? 0,
       expiredListings: expiredListings[0]?.value ?? 0,
       newToday: newToday[0]?.value ?? 0,
@@ -492,7 +499,7 @@ router.post("/admin/users/:userId/status", adminRequired, async (req, res) => {
 router.get("/admin/listings", adminRequired, async (req, res) => {
   const query = text(req.query.q, 100);
   const requestedStatus = text(req.query.status, 12);
-  const status = ["active", "hidden", "expired", "deleted"].includes(requestedStatus)
+  const status = ["pending", "active", "hidden", "expired", "deleted"].includes(requestedStatus)
     ? requestedStatus
     : "";
   const categoryId = integer(req.query.category, 1, 2_147_483_647);
@@ -579,7 +586,9 @@ router.get("/admin/listings", adminRequired, async (req, res) => {
         ? categories.find((category) => category.id === categories.find((item) => item.id === row.categoryId)?.parentId)?.slug
         : categories.find((category) => category.id === row.categoryId)?.slug,
       thumbnailUrl: photoByListing.has(row.id)
-        ? `/media/${photoByListing.get(row.id)}/thumb`
+        ? row.status === "pending"
+          ? `/admin/listings/${row.id}/photos/${photoByListing.get(row.id)}/thumb`
+          : `/media/${photoByListing.get(row.id)}/thumb`
         : null,
     })),
     filters: { q: query, status, categoryId: categoryId ?? "", page },
@@ -590,6 +599,8 @@ router.get("/admin/listings", adminRequired, async (req, res) => {
     pages,
     notice: req.query.notice === "saved"
       ? t("admin.saved")
+      : req.query.notice === "approved"
+        ? t("admin.approved")
       : req.query.notice === "invalid-date"
         ? t("admin.invalidDate")
         : req.query.notice === "invalid-priority"
@@ -599,6 +610,52 @@ router.get("/admin/listings", adminRequired, async (req, res) => {
             : null,
   });
 });
+
+router.get(
+  "/admin/listings/:listingId/photos/:photoId/:variant",
+  adminRequired,
+  async (req, res, next) => {
+    const listingId = integer(req.params.listingId, 1, 2_147_483_647);
+    const photoId = integer(req.params.photoId, 1, 2_147_483_647);
+    const variant = text(req.params.variant, 10);
+    if (!listingId || !photoId || !["full", "thumb"].includes(variant)) {
+      res.sendStatus(404);
+      return;
+    }
+    const [photo] = await db
+      .select({
+        objectKey: listingPhotos.objectKey,
+        thumbnailKey: listingPhotos.thumbnailKey,
+      })
+      .from(listingPhotos)
+      .innerJoin(boatListings, eq(listingPhotos.listingId, boatListings.id))
+      .where(
+        and(
+          eq(listingPhotos.id, photoId),
+          eq(listingPhotos.listingId, listingId),
+          eq(boatListings.status, "pending"),
+        ),
+      )
+      .limit(1);
+    if (!photo) {
+      res.sendStatus(404);
+      return;
+    }
+    const objectPath =
+      variant === "thumb" ? photo.thumbnailKey ?? photo.objectKey : photo.objectKey;
+    try {
+      const file = await streamPrivateObject(objectPath);
+      res.set({
+        "Content-Type": "image/webp",
+        "Cache-Control": "private, no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      file.on("error", next).pipe(res);
+    } catch (error) {
+      next(error);
+    }
+  },
+);
 
 router.get("/admin/listings/:id/edit", adminRequired, async (req, res) => {
   const id = integer(req.params.id, 1, 2_147_483_647);
@@ -722,7 +779,29 @@ router.post("/admin/listings/:id/action", adminRequired, async (req, res) => {
   }
   const action = text(req.body?.action, 20);
   const now = new Date();
-  if (action === "hide") {
+  if (action === "approve") {
+    if (listing.status !== "pending") {
+      res.sendStatus(409);
+      return;
+    }
+    const [approved] = await db
+      .update(boatListings)
+      .set({
+        status: "active",
+        expiresAt: new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000),
+        reminderSentAt: null,
+        reminderClaimedAt: null,
+        updatedAt: now,
+      })
+      .where(and(eq(boatListings.id, id), eq(boatListings.status, "pending")))
+      .returning({ id: boatListings.id });
+    if (!approved) {
+      res.sendStatus(409);
+      return;
+    }
+    res.redirect(303, "/admin/listings?status=pending&notice=approved");
+    return;
+  } else if (action === "hide") {
     await db.update(boatListings).set({ status: "hidden", updatedAt: now }).where(eq(boatListings.id, id));
     await db.update(forumTopics).set({ isLocked: true, updatedAt: now }).where(eq(forumTopics.listingId, id));
   } else if (action === "show") {

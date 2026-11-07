@@ -71,13 +71,7 @@ app.use(
 app.use(async (req, res, next) => {
   try {
     const config = await getSiteConfig();
-    const origin = config.siteUrl || (() => {
-      try {
-        return new URL(`${req.protocol}://${req.get("host")}`).origin;
-      } catch {
-        return "";
-      }
-    })();
+    const origin = config.siteUrl;
     res.locals.siteOrigin = origin;
     res.locals.canonicalUrl = origin && !req.path.startsWith("/admin")
       ? new URL(req.path, `${origin}/`).toString()
@@ -366,17 +360,17 @@ function xmlEscape(value: string): string {
   })[character]!);
 }
 
-function requestOrigin(req: Request, configured = ""): string | null {
-  if (configured) return configured;
+function requestOrigin(configured = ""): string | null {
+  if (!configured) return null;
   try {
-    return new URL(`${req.protocol}://${req.get("host")}`).origin;
+    return new URL(configured).origin;
   } catch {
     return null;
   }
 }
 
-app.get("/robots.txt", async (req, res) => {
-  const origin = requestOrigin(req, String(res.locals.siteOrigin || ""));
+app.get("/robots.txt", async (_req, res) => {
+  const origin = requestOrigin(String(res.locals.siteOrigin || ""));
   res.type("text/plain").send([
     "User-agent: *",
     "Allow: /",
@@ -386,8 +380,8 @@ app.get("/robots.txt", async (req, res) => {
   ].join("\n"));
 });
 
-app.get("/sitemap.xml", async (req, res) => {
-  const origin = requestOrigin(req, String(res.locals.siteOrigin || ""));
+app.get("/sitemap.xml", async (_req, res) => {
+  const origin = requestOrigin(String(res.locals.siteOrigin || ""));
   if (!origin) {
     res.status(503).type("text/plain").send("Set the site's public URL in admin settings to generate the sitemap.");
     return;

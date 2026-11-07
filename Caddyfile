@@ -1,0 +1,7 @@
+{$SITE_HOST} {
+	encode zstd gzip
+
+	@api path /api /api/*
+	reverse_proxy @api api:5000
+	reverse_proxy web:3000
+}

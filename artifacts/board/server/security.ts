@@ -126,14 +126,20 @@ export async function isMathChallengeValid(
   );
 }
 
-export async function consumeMathChallenge(id: string): Promise<boolean> {
+export async function consumeMathChallenge(
+  id: string,
+  ipHash: string,
+): Promise<boolean> {
+  const now = new Date();
   const [row] = await db
     .update(listingCaptchaChallenges)
-    .set({ consumedAt: new Date() })
+    .set({ consumedAt: now })
     .where(
       and(
         eq(listingCaptchaChallenges.id, id),
+        eq(listingCaptchaChallenges.ipHash, ipHash),
         isNull(listingCaptchaChallenges.consumedAt),
+        gte(listingCaptchaChallenges.expiresAt, now),
       ),
     )
     .returning({ id: listingCaptchaChallenges.id });

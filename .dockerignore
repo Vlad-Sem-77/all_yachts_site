@@ -1,0 +1,17 @@
+.git
+.local
+.agents
+.conversation
+.cache
+attached_assets
+node_modules
+**/node_modules
+dist
+**/dist
+coverage
+*.tsbuildinfo
+*.log
+.env
+.env.*
+!.env.example
+generated-artifacts

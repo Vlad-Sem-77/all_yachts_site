@@ -46,7 +46,7 @@ import { messages, t } from "./localization";
 import { getCategoryOptions } from "./form-routes";
 import { renderPage } from "./view";
 import { validateBoatListing } from "./listing-validation";
-import { deletePrivateObject, getPrivateObjectFile } from "./object-storage";
+import { deletePrivateObject, streamPrivateObject } from "./object-storage";
 import { passwordResetEmailEnabled } from "./email";
 import { getSiteConfig } from "./site-config";
 import { sendSiteEmail, smtpConfigured } from "./email";
@@ -633,13 +633,13 @@ router.get("/media/:photoId/:variant", async (req, res, next) => {
   }
   const objectPath = variant === "thumb" ? row.thumbnailKey ?? row.objectKey : row.objectKey;
   try {
-    const file = await getPrivateObjectFile(objectPath);
+    const file = await streamPrivateObject(objectPath);
     res.set({
       "Content-Type": "image/webp",
       "Cache-Control": "public, max-age=86400",
       "X-Content-Type-Options": "nosniff",
     });
-    file.createReadStream().on("error", next).pipe(res);
+    file.on("error", next).pipe(res);
   } catch (error) {
     next(error);
   }
@@ -722,8 +722,11 @@ router.post("/listing/:slug/report", async (req, res) => {
   });
   const categoryPath = await getListingCategoryPath(listing.categoryId);
   const siteConfig = await getSiteConfig();
-  if (smtpConfigured() && siteConfig.reportNotificationEmail) {
-    const listingUrl = `${siteConfig.siteUrl || `${req.protocol}://${req.get("host")}`}/category/${categoryPath}/${req.params.slug}`;
+  if (smtpConfigured() && siteConfig.reportNotificationEmail && siteConfig.siteUrl) {
+    const listingUrl = new URL(
+      `/category/${categoryPath}/${req.params.slug}`,
+      siteConfig.siteUrl,
+    ).toString();
     try {
       await sendSiteEmail(
         siteConfig.reportNotificationEmail,
@@ -999,13 +1002,15 @@ router.post("/listing/:slug/delete", async (req, res) => {
 
 router.get("/listing/:slug/forgot-password", async (req, res) => {
   const listing = await getActiveListingBySlug(req.params.slug);
+  const siteConfig = await getSiteConfig();
+  const emailEnabled = passwordResetEmailEnabled && Boolean(siteConfig.siteUrl);
   await renderPage(res, "forgot-password", {
     categories: await getFooterCategories(),
     listingSlug: listing?.slug ?? req.params.slug,
     csrf: createCsrfToken(),
     error: null,
-    emailEnabled: passwordResetEmailEnabled,
-    notice: passwordResetEmailEnabled ? null : t("detail.resetUnavailable"),
+    emailEnabled,
+    notice: emailEnabled ? null : t("detail.resetUnavailable"),
     title: `${t("detail.resetTitle")} | ${messages.brand.name}`,
     description: t("detail.resetRequest"),
   }, listing ? 200 : 404);
@@ -1013,9 +1018,12 @@ router.get("/listing/:slug/forgot-password", async (req, res) => {
 
 router.post("/listing/:slug/forgot-password", async (req, res) => {
   const listing = await getFullActiveListing(req.params.slug);
-  const footerCategories = await getFooterCategories();
+  const [footerCategories, siteConfig] = await Promise.all([
+    getFooterCategories(),
+    getSiteConfig(),
+  ]);
   const genericNotice = t("detail.resetSent");
-  const emailEnabled = passwordResetEmailEnabled;
+  const emailEnabled = passwordResetEmailEnabled && Boolean(siteConfig.siteUrl);
   if (!validFormRequest(req)) {
     await renderPage(res, "forgot-password", {
       categories: footerCategories,
@@ -1082,7 +1090,10 @@ router.post("/listing/:slug/forgot-password", async (req, res) => {
         expiresAt,
       });
     });
-    const resetUrl = `${req.protocol}://${req.get("host")}/reset-password?token=${encodeURIComponent(token)}`;
+    const resetUrl = new URL(
+      `/reset-password?token=${encodeURIComponent(token)}`,
+      siteConfig.siteUrl,
+    ).toString();
     try {
       const { sendPasswordResetEmail } = await import("./email");
       await sendPasswordResetEmail(listing.email, resetUrl);

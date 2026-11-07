@@ -7,6 +7,7 @@
   <div class="admin-stats-grid">
     <article class="admin-stat"><span><%= t("admin.totalListings") %></span><strong><%= stats.totalListings %></strong></article>
     <article class="admin-stat"><span><%= t("admin.activeListings") %></span><strong><%= stats.activeListings %></strong></article>
+    <a class="admin-stat admin-stat-link" href="/admin/listings?status=pending"><span><%= t("admin.pendingListings") %></span><strong><%= stats.pendingListings %></strong></a>
     <article class="admin-stat"><span><%= t("admin.hiddenListings") %></span><strong><%= stats.hiddenListings %></strong></article>
     <article class="admin-stat"><span><%= t("admin.expiredListings") %></span><strong><%= stats.expiredListings %></strong></article>
     <article class="admin-stat"><span><%= t("admin.newToday") %></span><strong><%= stats.newToday %></strong></article>

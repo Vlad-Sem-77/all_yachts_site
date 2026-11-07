@@ -4,6 +4,7 @@ import { ClerkProvider, SignIn, SignUp, useClerk } from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { ruRU } from "@clerk/localizations";
 import { shadcn } from "@clerk/themes";
+import { safeLocalReturnPath } from "../shared/safe-return-path";
 
 const clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
@@ -14,9 +15,6 @@ const clerkProxyUrl = import.meta.env.VITE_CLERK_PROXY_URL;
 if (!clerkPubKey) {
   throw new Error("Missing Clerk publishable key.");
 }
-
-const safeNext = (value: string | null): string =>
-  value?.startsWith("/") && !value.startsWith("//") ? value : "/forum";
 
 const appearance = {
   theme: shadcn,
@@ -72,6 +70,9 @@ function AuthApp({ mode, next }: { mode: string; next: string }) {
 
 document.querySelectorAll<HTMLElement>("[data-forum-auth]").forEach((element) => {
   const mode = element.dataset.mode ?? "sign-in";
-  const next = safeNext(new URLSearchParams(window.location.search).get("next"));
+  const next = safeLocalReturnPath(
+    new URLSearchParams(window.location.search).get("next"),
+    window.location.origin,
+  );
   createRoot(element).render(<AuthApp mode={mode} next={next} />);
 });

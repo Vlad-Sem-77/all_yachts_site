@@ -45,3 +45,7 @@ SSR-доска объявлений на Express, EJS и PostgreSQL с Drizzle O
 Публикацию и подключение домена выполняйте после проверки Secrets и настроек админки. В Replit откройте Publishing и опубликуйте приложение. Затем в разделе Domains подключите домен, которым вы владеете, и внесите выданные Replit DNS-записи (A и TXT) у регистратора домена. После подключения укажите итоговый корневой `https://`-адрес в `/admin/settings` и проверьте canonical, sitemap и почтовые ссылки.
 
 Подробности: [публикация приложения](https://docs.replit.com/build/publish-your-app), [подключение собственного домена](https://docs.replit.com/features/publishing/custom-domains).
+
+## Размещение на внешнем VDS
+
+Для Docker Compose, PostgreSQL и S3-хранилища см. [инструкцию по подготовке VDS](docs/vds-deployment.md). Конфигурация использует основной сайт и API-сервис, отдельную managed PostgreSQL и S3-совместимое хранилище; она не заказывает ресурсы и не переносит данные автоматически.

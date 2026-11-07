@@ -28956,6 +28956,26 @@ var ruRU = {
 
 // client/forum-auth.tsx
 var import_themes = __toESM(require_dist(), 1);
+
+// shared/safe-return-path.ts
+var CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
+function safeLocalReturnPath(value, baseOrigin, fallback = "/forum") {
+  if (typeof value !== "string" || value.length === 0 || value.length > 2048 || !value.startsWith("/") || value.startsWith("//") || value.includes("\\") || CONTROL_CHARACTERS.test(value)) {
+    return fallback;
+  }
+  try {
+    const base = new URL(baseOrigin);
+    const target = new URL(value, base);
+    if (target.origin !== base.origin || target.username || target.password) {
+      return fallback;
+    }
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
+// client/forum-auth.tsx
 var clerkPubKey = publishableKeyFromHost(
   window.location.hostname,
   "pk_test_ZGVjaWRpbmctZmlsbHktNzA0OS5jbGVyay5hY2NvdW50cy5kZXYk"
@@ -28964,7 +28984,6 @@ var clerkProxyUrl = "";
 if (!clerkPubKey) {
   throw new Error("Missing Clerk publishable key.");
 }
-var safeNext = (value) => value?.startsWith("/") && !value.startsWith("//") ? value : "/forum";
 var appearance = {
   theme: import_themes.shadcn,
   variables: {
@@ -29008,7 +29027,10 @@ function AuthApp({ mode, next }) {
 }
 document.querySelectorAll("[data-forum-auth]").forEach((element) => {
   const mode = element.dataset.mode ?? "sign-in";
-  const next = safeNext(new URLSearchParams(window.location.search).get("next"));
+  const next = safeLocalReturnPath(
+    new URLSearchParams(window.location.search).get("next"),
+    window.location.origin
+  );
   (0, import_client.createRoot)(element).render(/* @__PURE__ */ import_react10.default.createElement(AuthApp, { mode, next }));
 });
 /*! Bundled license information:

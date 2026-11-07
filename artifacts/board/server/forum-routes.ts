@@ -30,6 +30,7 @@ import {
   canModerateByForumRole,
 } from "./user-access";
 import { renderPage } from "./view";
+import { safeLocalReturnPath } from "../shared/safe-return-path";
 
 const router = Router();
 const badWords = [
@@ -55,10 +56,6 @@ function hasFilteredWords(value: string, section: typeof forumSections.$inferSel
 async function currentUser(req: Request) {
   const clerkId = getAuth(req).userId;
   return clerkId ? getOrCreateForumUser(clerkId) : null;
-}
-
-function safeNext(value: string): string {
-  return value.startsWith("/") && !value.startsWith("//") ? value : "/forum";
 }
 
 async function requireUser(req: Request, res: Response) {
@@ -127,7 +124,7 @@ async function postWithRateLimit(
 router.get("/sign-in", async (req, res) => {
   await renderPage(res, "forum-auth", {
     mode: "sign-in",
-    next: safeNext(clean(req.query.next, 500)),
+    next: safeLocalReturnPath(clean(req.query.next, 500), "https://all-yachts.invalid"),
     title: "Вход в аккаунт",
     description: "Войдите, чтобы участвовать в обсуждениях.",
     robots: "noindex, nofollow",
@@ -136,7 +133,7 @@ router.get("/sign-in", async (req, res) => {
 router.get("/sign-up", async (req, res) => {
   await renderPage(res, "forum-auth", {
     mode: "sign-up",
-    next: safeNext(clean(req.query.next, 500)),
+    next: safeLocalReturnPath(clean(req.query.next, 500), "https://all-yachts.invalid"),
     title: "Регистрация",
     description: "Создайте аккаунт, чтобы участвовать в обсуждениях.",
     robots: "noindex, nofollow",

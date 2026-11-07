@@ -11,7 +11,7 @@
       <span><%= t("admin.status") %></span>
       <select name="status">
         <option value=""><%= t("admin.anyStatus") %></option>
-        <% ["active","hidden","expired","deleted"].forEach((value) => { %>
+        <% ["pending","active","hidden","expired","deleted"].forEach((value) => { %>
           <option value="<%= value %>" <%= filters.status === value ? "selected" : "" %>><%= t(`admin.statusLabels.${value}`) %></option>
         <% }) %>
       </select>
@@ -41,7 +41,7 @@
               <% if (listing.boostedAt) { %><span class="admin-badge"><%= t("admin.boosted") %></span><% } %>
             </div>
             <h2>
-              <% if (listing.slug && listing.categoryPath) { %>
+                <% if (listing.status !== "pending" && listing.slug && listing.categoryPath) { %>
                 <a href="/category/<%= listing.categoryPath %>/<%= listing.slug %>" target="_blank" rel="noreferrer"><%= listing.title %></a>
               <% } else { %><%= listing.title %><% } %>
             </h2>
@@ -51,6 +51,7 @@
             <div class="admin-action-groups">
               <form method="post" action="/admin/listings/<%= listing.id %>/action" class="admin-inline-actions">
                 <input type="hidden" name="_csrf" value="<%= csrf %>" />
+                <% if (listing.status === "pending") { %><button class="primary-button" name="action" value="approve"><%= t("admin.approve") %></button><% } %>
                 <% if (listing.status === "active") { %><button class="secondary-button" name="action" value="hide"><%= t("admin.hide") %></button><% } %>
                 <% if (listing.status === "hidden" || listing.status === "expired") { %><button class="secondary-button" name="action" value="show"><%= t("admin.show") %></button><% } %>
                 <% if (listing.status !== "deleted") { %><button class="danger-button" name="action" value="delete" onclick="return confirm('<%= t("admin.confirmDelete") %>')"><%= t("admin.delete") %></button><% } %>

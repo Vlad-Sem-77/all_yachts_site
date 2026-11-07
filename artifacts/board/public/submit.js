@@ -8,6 +8,9 @@
   const submitButton = form.querySelector("[data-submit-button]");
   const uploadPaths = form.querySelector("[data-upload-paths]");
   const draftToken = form.querySelector("[data-draft-token]");
+  const captchaId = form.querySelector('input[name="captchaId"]');
+  const captchaAnswer = form.querySelector('input[name="captchaAnswer"]');
+  const captchaQuestion = form.querySelector("[data-captcha-question]");
   const categorySelect = form.querySelector("[data-category-select]");
   if (
     !(fileInput instanceof HTMLInputElement) ||
@@ -15,7 +18,10 @@
     !(status instanceof HTMLElement) ||
     !(submitButton instanceof HTMLButtonElement) ||
     !(uploadPaths instanceof HTMLElement) ||
-    !(draftToken instanceof HTMLInputElement)
+    !(draftToken instanceof HTMLInputElement) ||
+    !(captchaId instanceof HTMLInputElement) ||
+    !(captchaAnswer instanceof HTMLInputElement) ||
+    !(captchaQuestion instanceof HTMLElement)
   ) return;
 
   const fieldSets = [
@@ -116,6 +122,15 @@
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Не удалось подготовить загрузку.");
+      if (
+        typeof result.captcha?.id !== "string" ||
+        typeof result.captcha?.question !== "string"
+      ) {
+        throw new Error("Не удалось обновить проверочный пример. Обновите страницу.");
+      }
+      captchaId.value = result.captcha.id;
+      captchaQuestion.textContent = result.captcha.question;
+      captchaAnswer.value = "";
 
       const completedPaths = [];
       for (let index = 0; index < files.length; index += 1) {
@@ -141,7 +156,6 @@
       fileInput.required = false;
       status.textContent = message("msgUploaded");
       submitButton.disabled = false;
-      form.requestSubmit();
     } catch (error) {
       status.textContent = error instanceof Error ? error.message : message("msgUploadError");
       submitButton.disabled = false;

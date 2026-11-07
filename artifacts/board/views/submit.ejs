@@ -40,7 +40,7 @@
 
     <div class="form-grid form-grid-two captcha-agreement">
       <label class="form-field">
-        <span><%= t("submit.captcha") %>: <strong><%= captcha.question %></strong></span>
+        <span><%= t("submit.captcha") %>: <strong data-captcha-question><%= captcha.question %></strong></span>
         <input name="captchaAnswer" inputmode="numeric" required autocomplete="off" />
       </label>
       <label class="checkbox-field agreement-field">
