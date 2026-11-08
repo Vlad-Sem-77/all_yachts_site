@@ -63,12 +63,3 @@ jobs:
           push: true
           platforms: linux/amd64
           tags: ghcr.io/vlad-sem-77/all-yachts-site-proxy:deploy-f
-
-      - name: Make images public
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for package in all-yachts-site all-yachts-site-migrate all-yachts-site-proxy; do
-            gh api --method PATCH "/user/packages/container/${package}/visibility" \
-              --field visibility=public
-          done
